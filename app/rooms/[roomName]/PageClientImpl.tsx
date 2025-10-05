@@ -419,11 +419,24 @@ function VideoConferenceComponent(props: {
                   currentSid = 0; // reset for next sentence
                 },
               });
-              // Mark captions as active for overlay gating
-              try { (window as any).__txat_captions_active = true; } catch {}
+              // Mirror mute/unmute to fork track
+              const toggleFork = () => {
+                const t = forkedStreamRef.current?.getAudioTracks?.()[0];
+                if (!t) return;
+                const pub: any = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+                const muted = pub?.isMuted || pub?.muted || !room.localParticipant.isMicrophoneEnabled;
+                t.enabled = !muted;
+              };
+              const onMute = (_pub:any, participant:any)=>{ if(participant?.isLocal) toggleFork(); };
+              const onUnmute = (_pub:any, participant:any)=>{ if(participant?.isLocal) toggleFork(); };
+              room.on(RoomEvent.TrackMuted, onMute);
+              room.on(RoomEvent.TrackUnmuted, onUnmute);
+              toggleFork();
               // Cleanup on disconnect
               room.on(RoomEvent.Disconnected, () => {
                 try { stop(); } catch {}
+                room.off(RoomEvent.TrackMuted, onMute);
+                room.off(RoomEvent.TrackUnmuted, onUnmute);
                 try { (window as any).__txat_captions_active = false; } catch {}
               });
               return; // do not run legacy MediaRecorder path
