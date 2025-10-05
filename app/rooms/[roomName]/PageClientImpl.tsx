@@ -335,7 +335,9 @@ function VideoConferenceComponent(props: {
               if (e.data.size < 8000) return;
               // Send to STT proxy
               const form = new FormData();
-              form.append('file', e.data, 'chunk.webm');
+              const t = (e.data?.type || '').toLowerCase();
+              const ext = t.includes('webm') ? 'webm' : t.includes('mp4') ? 'mp4' : t.includes('wav') ? 'wav' : t.includes('mpeg') || t.includes('mp3') ? 'mp3' : 'webm';
+              form.append('file', e.data, `chunk.${ext}`);
               const u = new URL('/api/stt', window.location.origin);
               if (sttLang && sttLang !== 'auto') u.searchParams.set('lang', sttLang);
               const r = await fetch(u.toString(), { method: 'POST', body: form });
