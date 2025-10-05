@@ -1129,7 +1129,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 112,
+          maxHeight: 84,
           borderBottom: '1px solid rgba(255,255,255,0.15)'
         }}
       >
@@ -1162,7 +1162,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 112,
+          maxHeight: 84,
         }}
       >
         {tblocks.length === 0 ? (
