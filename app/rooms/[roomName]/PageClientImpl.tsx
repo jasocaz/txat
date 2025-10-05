@@ -1082,6 +1082,16 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     }
   }, [blocks]);
 
+  // Ensure interim (italics) line stays visible as it updates
+  React.useEffect(() => {
+    if (transcriptRef.current) {
+      const el = transcriptRef.current;
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }, [active?.id, active?.text]);
+
   React.useEffect(() => {
     if (translationRef.current) {
       const el = translationRef.current;
