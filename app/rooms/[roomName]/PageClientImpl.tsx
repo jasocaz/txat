@@ -1063,28 +1063,22 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   }, [identity, participants]);
 
   React.useEffect(() => {
-    if (transcriptRef.current && pinTranscriptBottom) {
+    if (transcriptRef.current) {
       const el = transcriptRef.current;
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
-        setTimeout(() => {
-          el.scrollTop = el.scrollHeight;
-        }, 0);
       });
     }
-  }, [blocks, pinTranscriptBottom]);
+  }, [blocks]);
 
   React.useEffect(() => {
-    if (translationRef.current && pinTranslationBottom) {
+    if (translationRef.current) {
       const el = translationRef.current;
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
-        setTimeout(() => {
-          el.scrollTop = el.scrollHeight;
-        }, 0);
       });
     }
-  }, [tblocks, pinTranslationBottom]);
+  }, [tblocks]);
 
   if (!container) return null;
   return createPortal(
