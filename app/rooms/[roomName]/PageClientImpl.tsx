@@ -226,6 +226,9 @@ function VideoConferenceComponent(props: {
           props.connectionDetails.participantToken,
           connectOptions,
         )
+        .then(() => {
+          try { (globalThis as any).__txat_room = room; } catch {}
+        })
         .catch((error) => {
           handleError(error);
         });
