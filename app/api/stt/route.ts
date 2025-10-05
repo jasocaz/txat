@@ -7,7 +7,9 @@ export async function POST(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const lang = url.searchParams.get('lang') || undefined;
-    const model = process.env.OPENAI_STT_MODEL || 'gpt-4o-transcribe';
+    // Use Whisper by default for /audio/transcriptions compatibility
+    const envModel = process.env.OPENAI_STT_MODEL || 'whisper-1';
+    const model = /gpt-4o/i.test(envModel) ? 'whisper-1' : envModel;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return new NextResponse('Missing OPENAI_API_KEY', { status: 500 });
@@ -44,9 +46,10 @@ export async function POST(req: NextRequest) {
         file: safeFile,
         model,
         language: lang || undefined,
+        response_format: 'text',
       } as any);
-      const text = (transcription as any)?.text ? String((transcription as any).text).trim() : '';
-      return NextResponse.json({ text, raw: transcription });
+      const text = transcription ? String(transcription as any).trim?.() || String(transcription) : '';
+      return NextResponse.json({ text });
     } catch (err: any) {
       const msg = err?.message || 'OpenAI STT error';
       return new NextResponse(`OpenAI STT error: ${msg}`, { status: 502 });
