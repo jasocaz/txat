@@ -429,14 +429,19 @@ function VideoConferenceComponent(props: {
               };
               const onMute = (_pub:any, participant:any)=>{ if(participant?.isLocal) toggleFork(); };
               const onUnmute = (_pub:any, participant:any)=>{ if(participant?.isLocal) toggleFork(); };
+              const onPub = (pub:any, participant:any)=>{
+                if(participant?.isLocal && pub?.source === Track.Source.Microphone){ toggleFork(); }
+              };
               room.on(RoomEvent.TrackMuted, onMute);
               room.on(RoomEvent.TrackUnmuted, onUnmute);
+              room.on(RoomEvent.LocalTrackPublished as any, onPub as any);
               toggleFork();
               // Cleanup on disconnect
               room.on(RoomEvent.Disconnected, () => {
                 try { stop(); } catch {}
                 room.off(RoomEvent.TrackMuted, onMute);
                 room.off(RoomEvent.TrackUnmuted, onUnmute);
+                room.off(RoomEvent.LocalTrackPublished as any, onPub as any);
                 try { (window as any).__txat_captions_active = false; } catch {}
               });
               return; // do not run legacy MediaRecorder path
