@@ -348,6 +348,9 @@ function VideoConferenceComponent(props: {
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                  try {
+                    window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
+                  } catch {}
                 },
                 onCompleted: async (text) => {
                   const payload = {
@@ -359,6 +362,9 @@ function VideoConferenceComponent(props: {
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                  try {
+                    window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
+                  } catch {}
                   const target = (window as any).__txat_target_lang as string | undefined;
                   if (target) {
                     try {
@@ -377,6 +383,9 @@ function VideoConferenceComponent(props: {
                             timestamp: new Date().toISOString(),
                           };
                           room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                          try {
+                            window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: tmsg }));
+                          } catch {}
                         }
                       }
                     } catch {}
@@ -942,8 +951,21 @@ function CaptionsTilesOverlay(props: { room: Room }) {
       }
     };
     room.on(RoomEvent.DataReceived, onData);
+    // Also listen to local synthetic events (realtime mode)
+    const onLocal = (e: any) => {
+      try {
+        const json = e?.detail;
+        if (!json) return;
+        // Mirror the same handling as topic==='captions'
+        const speaker = json.speaker || room.localParticipant?.identity;
+        const wrapped = JSON.stringify({ ...json, speaker });
+        onData(new TextEncoder().encode(wrapped), undefined, undefined, 'captions');
+      } catch {}
+    };
+    try { window.addEventListener('txat_captions_local' as any, onLocal as any); } catch {}
     return () => {
       room.off(RoomEvent.DataReceived, onData);
+      try { window.removeEventListener('txat_captions_local' as any, onLocal as any); } catch {}
     };
   }, [room]);
 
