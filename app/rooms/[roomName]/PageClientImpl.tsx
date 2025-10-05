@@ -832,6 +832,8 @@ function CaptionsTilesOverlay(props: { room: Room }) {
       _k?: any,
       topic?: string,
     ) => {
+      // Ignore echoes of messages we just dispatched locally
+      if (_p?.isLocal) return;
       const text = new TextDecoder().decode(payload);
       // Debug: log incoming captions payloads (temporary)
       try {
