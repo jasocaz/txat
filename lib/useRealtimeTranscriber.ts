@@ -77,17 +77,11 @@ export function startOpenAIRealtimeTranscriber(
       const { client_secret } = await tokenResp.json();
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const answerResp = await fetch(
-        'https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/sdp',
-            Authorization: `Bearer ${client_secret}`,
-          },
-          body: offer.sdp || '',
-        }
-      );
+      const answerResp = await fetch(`/api/realtime-session?client_secret=${encodeURIComponent(client_secret)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/sdp' },
+        body: offer.sdp || '',
+      });
       if (!answerResp.ok) throw new Error(await answerResp.text());
       const answerSdp = await answerResp.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });

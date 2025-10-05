@@ -33,7 +33,27 @@ async function mintSession() {
   }
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
+  if ((req.headers.get('content-type') || '').includes('application/sdp')) {
+    // Forward SDP offer to OpenAI and return answer SDP
+    const body = await req.text();
+    const clientSecret = req.headers.get('x-openai-client-secret') || req.nextUrl.searchParams.get('client_secret');
+    if (!clientSecret) return new NextResponse('Missing client_secret', { status: 400 });
+    try {
+      const resp = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/sdp',
+          Authorization: `Bearer ${clientSecret}`,
+        },
+        body,
+      });
+      const text = await resp.text();
+      return new NextResponse(text, { status: resp.status, headers: { 'Content-Type': 'application/sdp' } });
+    } catch (e: any) {
+      return new NextResponse(e?.message || 'SDP forward error', { status: 500 });
+    }
+  }
   return mintSession();
 }
 
