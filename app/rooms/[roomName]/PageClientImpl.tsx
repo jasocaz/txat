@@ -32,6 +32,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useSetupE2EE } from '@/lib/useSetupE2EE';
 import { useLowCPUOptimizer } from '@/lib/usePerfomanceOptimiser';
+import { startOpenAIRealtimeTranscriber } from '@/lib/useRealtimeTranscriber';
 
 const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
@@ -331,6 +332,64 @@ function VideoConferenceComponent(props: {
               console.warn('Local transcriber: no microphone stream available');
               return;
             }
+            // If using realtime fork mode, replace legacy batch STT with realtime streaming
+            if (CAPTIONS_SRC === 'fork') {
+              const s = forkedStreamRef.current;
+              if (!s) return;
+              let sid = 0;
+              const stop = startOpenAIRealtimeTranscriber(s, {
+                onDelta: (text) => {
+                  const payload = {
+                    type: 'transcription',
+                    speaker: room.localParticipant.identity,
+                    text,
+                    final: false,
+                    sentenceId: sid || (sid = 1),
+                    timestamp: new Date().toISOString(),
+                  } as const;
+                  room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                },
+                onCompleted: async (text) => {
+                  const payload = {
+                    type: 'transcription',
+                    speaker: room.localParticipant.identity,
+                    text,
+                    final: true,
+                    sentenceId: ++sid,
+                    timestamp: new Date().toISOString(),
+                  } as const;
+                  room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                  const target = (window as any).__txat_target_lang as string | undefined;
+                  if (target) {
+                    try {
+                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
+                      if (tr.ok) {
+                        const tj = await tr.json();
+                        const translatedText = String(tj?.translated || '').trim();
+                        if (translatedText) {
+                          const tmsg = {
+                            type: 'translation',
+                            speaker: room.localParticipant.identity,
+                            text,
+                            translatedText,
+                            sentenceId: sid,
+                            final: true,
+                            timestamp: new Date().toISOString(),
+                          };
+                          room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                        }
+                      }
+                    } catch {}
+                  }
+                },
+              });
+              // Cleanup on disconnect
+              room.on(RoomEvent.Disconnected, () => {
+                try { stop(); } catch {}
+              });
+              return; // do not run legacy MediaRecorder path
+            }
+
             const supportedMime = typeof MediaRecorder !== 'undefined' &&
               (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
