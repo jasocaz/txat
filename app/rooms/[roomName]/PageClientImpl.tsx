@@ -383,9 +383,12 @@ function VideoConferenceComponent(props: {
                   }
                 },
               });
+              // Mark captions as active for overlay gating
+              try { (window as any).__txat_captions_active = true; } catch {}
               // Cleanup on disconnect
               room.on(RoomEvent.Disconnected, () => {
                 try { stop(); } catch {}
+                try { (window as any).__txat_captions_active = false; } catch {}
               });
               return; // do not run legacy MediaRecorder path
             }
@@ -944,8 +947,8 @@ function CaptionsTilesOverlay(props: { room: Room }) {
     };
   }, [room]);
 
-  // Only render overlays when captions are enabled via URL (?captions=1)
-  const captionsEnabled = new URLSearchParams(window.location.search).get('captions') === '1';
+  // Only render overlays when captions are enabled via URL (?captions=1) or runtime flag
+  const captionsEnabled = new URLSearchParams(window.location.search).get('captions') === '1' || (typeof window !== 'undefined' && (window as any).__txat_captions_active === true);
   if (!captionsEnabled) return null;
   return (
     <>
