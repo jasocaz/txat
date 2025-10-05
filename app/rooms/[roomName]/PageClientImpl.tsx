@@ -327,6 +327,10 @@ function VideoConferenceComponent(props: {
             let sid = 0;
             rec.ondataavailable = async (e) => {
               if (!e.data || e.data.size === 0) return;
+              // Skip while mic muted/disabled
+              const pubAny: any = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+              const micEnabled = room.localParticipant.isMicrophoneEnabled && !pubAny?.isMuted && !pubAny?.muted;
+              if (!micEnabled) return;
               // Ignore very small chunks to avoid OpenAI decode errors
               if (e.data.size < 8000) return;
               // Send to STT proxy
