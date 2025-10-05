@@ -29,8 +29,23 @@ export async function POST(req: NextRequest) {
       return new NextResponse('No audio provided', { status: 400 });
     }
 
+    // Normalize file type and filename so OpenAI accepts it
+    const blobType = (blob.type || '').toLowerCase();
+    const type = blobType || 'audio/webm';
+    const ext = type.includes('webm')
+      ? 'webm'
+      : type.includes('mp4')
+      ? 'mp4'
+      : type.includes('mpeg') || type.includes('mp3')
+      ? 'mp3'
+      : type.includes('wav')
+      ? 'wav'
+      : 'webm';
+    // Re-wrap as a File with explicit type + filename
+    const file = new File([blob], `audio.${ext}`, { type });
+
     const formData = new FormData();
-    formData.append('file', blob, 'audio.webm');
+    formData.append('file', file);
     formData.append('model', model);
     if (lang) formData.append('language', lang);
 
