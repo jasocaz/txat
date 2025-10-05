@@ -1021,6 +1021,9 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   const [container, setContainer] = React.useState<Element | null>(null);
   const transcriptRef = React.useRef<HTMLDivElement | null>(null);
   const translationRef = React.useRef<HTMLDivElement | null>(null);
+  const langs = React.useMemo(() => [
+    ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
+  ] as [string,string][], []);
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
     const escId = (window as any).CSS?.escape
@@ -1088,7 +1091,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     }
   }, [tblocks]);
 
-  if (!container) return null;
   const isLocal = participants.some((p) => p.identity === identity && p.isLocal);
   const initialTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
   const [targetLang, setTargetLang] = React.useState(initialTarget);
@@ -1097,6 +1099,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     setTargetLang(val);
     try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
   };
+  if (!container) return null;
   return createPortal(
     <div
       style={{
