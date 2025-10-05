@@ -325,49 +325,26 @@ function VideoConferenceComponent(props: {
               let nextSid = 1;
               let currentSid = 0;
               let lastFinalText = '';
+                let currentInterimText = '';
+                let finalizeTimer: any = null;
+                let finalizedSid: number | null = null;
               const normalizeTail = (s: string) =>
                 String(s)
                   .replace(/[\s]+/g, ' ')
                   .replace(/[.!?…]+$/g, '')
                   .trim()
                   .toLowerCase();
-              const stop = startOpenAIRealtimeTranscriber(s, {
-                onDelta: (text) => {
-                  // Drop punctuation-only deltas to avoid stray '.' or '?' lines
-                  if (/^[\s.!?…]+$/.test(text)) return;
-                  const cleaned = String(text).trim();
-                  if (!cleaned) return;
-                  // Suppress carryover of last word(s) from the just-finalized line
-                  if (lastFinalText) {
-                    const tail = normalizeTail(lastFinalText).split(' ').slice(-3).join(' ');
-                    const w = normalizeTail(cleaned);
-                    if (w && (tail === w || tail.endsWith(' ' + w))) return;
-                  }
-                  console.log('ASR delta', cleaned);
-                  if (currentSid === 0) currentSid = nextSid;
+                const commitFinalFromInterim = async () => {
+                  if (currentSid === 0) return;
+                  if (finalizedSid === currentSid) return;
+                  const text = String(currentInterimText || '').trim();
+                  if (!text) return;
+                  finalizedSid = currentSid;
+                  lastFinalText = text;
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
-                    text: cleaned,
-                    final: false,
-                    sentenceId: currentSid,
-                    timestamp: new Date().toISOString(),
-                  } as const;
-                  room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
-                  try {
-                    window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
-                  } catch {}
-                },
-                onCompleted: async (text) => {
-                  // Guard against punctuation-only completions (merge handled by model already)
-                  if (/^[\s.!?…]+$/.test(text)) return;
-                  lastFinalText = String(text).trim();
-                  console.log('ASR final', lastFinalText);
-                  if (currentSid === 0) currentSid = nextSid;
-                  const payload = {
-                    type: 'transcription',
-                    speaker: room.localParticipant.identity,
-                    text: lastFinalText,
+                    text,
                     final: true,
                     sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
@@ -379,7 +356,7 @@ function VideoConferenceComponent(props: {
                   const target = (window as any).__txat_target_lang as string | undefined;
                   if (target) {
                     try {
-                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: lastFinalText, target }) });
+                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
                       if (tr.ok) {
                         const tj = await tr.json();
                         const translatedText = String(tj?.translated || '').trim();
@@ -387,7 +364,7 @@ function VideoConferenceComponent(props: {
                           const tmsg = {
                             type: 'translation',
                             speaker: room.localParticipant.identity,
-                            text: lastFinalText,
+                            text,
                             translatedText,
                             sentenceId: currentSid,
                             final: true,
@@ -402,7 +379,55 @@ function VideoConferenceComponent(props: {
                     } catch {}
                   }
                   nextSid = currentSid + 1;
-                  currentSid = 0; // reset for next sentence
+                  currentSid = 0;
+                  finalizedSid = null;
+                  currentInterimText = '';
+                };
+              const stop = startOpenAIRealtimeTranscriber(s, {
+                onDelta: (text) => {
+                  // Drop punctuation-only deltas to avoid stray '.' or '?' lines
+                  if (/^[\s.!?…]+$/.test(text)) return;
+                  const cleaned = String(text).trim();
+                  if (!cleaned) return;
+                  // Suppress carryover of last word(s) from the just-finalized line
+                  if (lastFinalText) {
+                    const tail = normalizeTail(lastFinalText).split(' ').slice(-3).join(' ');
+                    const w = normalizeTail(cleaned);
+                    if (w && (tail === w || tail.endsWith(' ' + w))) return;
+                  }
+                  console.log('ASR delta', cleaned);
+                  if (currentSid === 0) currentSid = nextSid;
+                    currentInterimText = cleaned;
+                    if (finalizeTimer) clearTimeout(finalizeTimer);
+                    // finalize if no new delta arrives shortly
+                    finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 600);
+                  const payload = {
+                    type: 'transcription',
+                    speaker: room.localParticipant.identity,
+                    text: cleaned,
+                    final: false,
+                    sentenceId: currentSid,
+                    timestamp: new Date().toISOString(),
+                  } as const;
+                  room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                  try {
+                    window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
+                  } catch {}
+                    // Immediate finalize on end punctuation
+                    if (/[.!?…]$/.test(cleaned)) {
+                      if (finalizeTimer) clearTimeout(finalizeTimer);
+                      commitFinalFromInterim();
+                    }
+                },
+                onCompleted: async (text) => {
+                  // Guard against punctuation-only completions (merge handled by model already)
+                  if (/^[\s.!?…]+$/.test(text)) return;
+                  lastFinalText = String(text).trim();
+                  console.log('ASR final', lastFinalText);
+                    if (finalizeTimer) clearTimeout(finalizeTimer);
+                    if (currentSid === 0) currentSid = nextSid;
+                    currentInterimText = lastFinalText;
+                    commitFinalFromInterim();
                 },
               });
               // Mirror mute/unmute to fork track
