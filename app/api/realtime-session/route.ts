@@ -1,30 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 
-export async function POST(_req: NextRequest) {
+async function mintSession() {
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
+  }
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
-    }
-
-    const openai = new OpenAI({ apiKey });
-    // Create a Realtime session for PCM16 audio and gpt-4o-transcribe transcription
-    const session: any = await openai.realtime.sessions.create({
-      model: 'gpt-4o-realtime-preview-2024-12-17',
-      input_audio_format: 'pcm16',
-      input_audio_transcription: {
-        model: 'gpt-4o-transcribe',
+    const resp = await fetch('https://api.openai.com/v1/realtime/sessions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
       },
-    } as any);
-
+      body: JSON.stringify({
+        model: 'gpt-4o-realtime-preview-2024-12-17',
+        input_audio_format: 'pcm16',
+        input_audio_transcription: { model: 'gpt-4o-transcribe' },
+      }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      return NextResponse.json({ error: text }, { status: resp.status });
+    }
+    const data = await resp.json();
     return NextResponse.json({
-      client_secret: session.client_secret,
-      expires_at: session.expires_at,
+      client_secret: data?.client_secret?.value,
+      expires_at: data?.client_secret?.expires_at,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Realtime session error' }, { status: 500 });
   }
+}
+
+export async function POST(_req: NextRequest) {
+  return mintSession();
+}
+
+export async function GET(_req: NextRequest) {
+  return mintSession();
 }
