@@ -20,10 +20,8 @@ export async function POST(req: NextRequest) {
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('multipart/form-data')) {
       const form = await req.formData();
-      const file = form.get('file');
-      if (file && file instanceof Blob) {
-        blob = file;
-      }
+      const file = (form.get('file') || form.get('audio')) as Blob | null;
+      if (file && file instanceof Blob) blob = file;
     } else {
       blob = await req.blob();
     }

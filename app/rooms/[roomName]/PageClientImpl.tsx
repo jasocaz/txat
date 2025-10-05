@@ -325,6 +325,7 @@ function VideoConferenceComponent(props: {
                 : undefined);
             const rec = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
             let sid = 0;
+            const chunkQueue: Blob[] = [];
             rec.ondataavailable = async (e) => {
               if (!e.data || e.data.size === 0) return;
               // Skip while mic muted/disabled
@@ -333,11 +334,19 @@ function VideoConferenceComponent(props: {
               if (!micEnabled) return;
               // Ignore very small chunks to avoid OpenAI decode errors
               if (e.data.size < 8000) return;
+
+              // Batch multiple chunks into a single file (improves container validity)
+              chunkQueue.push(e.data);
+              const totalSize = chunkQueue.reduce((n, b) => n + (b as any).size, 0);
+              if (chunkQueue.length < 3 && totalSize < 120000) return; // wait for ~3 chunks or ~120KB
+
+              const type = (e.data.type || 'audio/webm');
+              const ext = type.includes('webm') ? 'webm' : type.includes('mp4') ? 'mp4' : type.includes('wav') ? 'wav' : type.includes('mpeg') || type.includes('mp3') ? 'mp3' : 'webm';
+              const batched = new Blob(chunkQueue.splice(0, chunkQueue.length), { type });
+
               // Send to STT proxy
               const form = new FormData();
-              const t = (e.data?.type || '').toLowerCase();
-              const ext = t.includes('webm') ? 'webm' : t.includes('mp4') ? 'mp4' : t.includes('wav') ? 'wav' : t.includes('mpeg') || t.includes('mp3') ? 'mp3' : 'webm';
-              form.append('file', e.data, `chunk.${ext}`);
+              form.append('file', new File([batched], `clip.${ext}`, { type }));
               const u = new URL('/api/stt', window.location.origin);
               if (sttLang && sttLang !== 'auto') u.searchParams.set('lang', sttLang);
               const r = await fetch(u.toString(), { method: 'POST', body: form });
