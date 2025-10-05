@@ -1090,12 +1090,11 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
 
   if (!container) return null;
   const isLocal = participants.some((p) => p.identity === identity && p.isLocal);
-  const langs = [
-    ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
-  ];
-  const currentTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
+  const initialTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
+  const [targetLang, setTargetLang] = React.useState(initialTarget);
   const handleTargetChange = (e: any)=>{
     const val = e.target.value;
+    setTargetLang(val);
     try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
   };
   return createPortal(
@@ -1123,7 +1122,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
       }}
     >
       {isLocal && (
-        <select value={currentTarget} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
+        <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
         </select>
       )}
