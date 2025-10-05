@@ -356,6 +356,7 @@ function VideoConferenceComponent(props: {
                     const w = normalizeTail(cleaned);
                     if (w && (tail === w || tail.endsWith(' ' + w))) return;
                   }
+                  console.log('ASR delta', cleaned);
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
@@ -373,6 +374,7 @@ function VideoConferenceComponent(props: {
                   // Guard against punctuation-only completions (merge handled by model already)
                   if (/^[\s.!?…]+$/.test(text)) return;
                   lastFinalText = String(text).trim();
+                  console.log('ASR final', lastFinalText);
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
