@@ -339,6 +339,8 @@ function VideoConferenceComponent(props: {
               let sid = 0;
               const stop = startOpenAIRealtimeTranscriber(s, {
                 onDelta: (text) => {
+                  // Drop punctuation-only deltas to avoid stray '.' or '?' lines
+                  if (/^[\s.!?…]+$/.test(text)) return;
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
@@ -353,6 +355,8 @@ function VideoConferenceComponent(props: {
                   } catch {}
                 },
                 onCompleted: async (text) => {
+                  // Guard against punctuation-only completions (merge handled by model already)
+                  if (/^[\s.!?…]+$/.test(text)) return;
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
