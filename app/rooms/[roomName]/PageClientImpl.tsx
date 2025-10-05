@@ -834,9 +834,9 @@ function CaptionsTilesOverlay(props: { room: Room }) {
     };
   }, [room]);
 
-  // Only render overlays when the agent is present
-  const agentPresent = participants.some((p) => isAgentParticipant(p));
-  if (!agentPresent) return null;
+  // Only render overlays when captions are enabled via URL (?captions=1)
+  const captionsEnabled = new URLSearchParams(window.location.search).get('captions') === '1';
+  if (!captionsEnabled) return null;
   return (
     <>
       {Object.entries(byIdentity).map(([identity, v]) => (
