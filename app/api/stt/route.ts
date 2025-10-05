@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
 
 export const runtime = 'nodejs';
 
@@ -33,41 +34,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ text: '' });
     }
 
-    // Normalize file type and filename so OpenAI accepts it
-    const blobType = (blob.type || '').toLowerCase();
-    const type = blobType || 'audio/webm';
-    const ext = type.includes('webm')
-      ? 'webm'
-      : type.includes('mp4')
-      ? 'mp4'
-      : type.includes('mpeg') || type.includes('mp3')
-      ? 'mp3'
-      : type.includes('wav')
-      ? 'wav'
-      : 'webm';
-    // Re-wrap as a File with explicit type + filename
-    const file = new File([blob], `audio.${ext}`, { type });
+    // Normalize to a plain 'audio/webm' filename; avoid codec params in type header
+    const safeFile = new File([blob], 'audio.webm', { type: 'audio/webm' });
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model', model);
-    if (lang) formData.append('language', lang);
-
-    const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: formData,
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      return new NextResponse(`OpenAI STT error: ${errText}`, { status: 502 });
+    // Use OpenAI SDK for robust multipart encoding
+    const openai = new OpenAI({ apiKey });
+    try {
+      const transcription = await openai.audio.transcriptions.create({
+        file: safeFile,
+        model,
+        language: lang || undefined,
+      } as any);
+      const text = (transcription as any)?.text ? String((transcription as any).text).trim() : '';
+      return NextResponse.json({ text, raw: transcription });
+    } catch (err: any) {
+      const msg = err?.message || 'OpenAI STT error';
+      return new NextResponse(`OpenAI STT error: ${msg}`, { status: 502 });
     }
-    const data = await resp.json();
-    const text = (data?.text || '').trim();
-    return NextResponse.json({ text, raw: data });
   } catch (e: any) {
     return new NextResponse(e?.message || 'STT route error', { status: 500 });
   }
