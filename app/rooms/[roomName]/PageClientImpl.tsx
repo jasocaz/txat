@@ -733,8 +733,31 @@ function ChatTranslator(props: { room: Room }) {
       } catch {}
     };
     (room as any).on((RoomEvent as any).MessageReceived, onChat);
+    // Also handle LiveKit Components chat which relays via DataReceived on topic 'lk-chat-topic'
+    const onData = async (payload: Uint8Array, participant?: any, _k?: any, topic?: string) => {
+      if (topic !== 'lk-chat-topic') return;
+      try {
+        const txtRaw = new TextDecoder().decode(payload);
+        let txt = txtRaw;
+        try { const j = JSON.parse(txtRaw); txt = String(j?.message ?? txtRaw); } catch {}
+        if (!txt || txt.startsWith('[TranslateHelper]')) return;
+        const from = participant?.identity;
+        if (!from) return;
+        if (room?.localParticipant?.identity === from) return;
+        const target = (window as any).__txat_target_lang || 'en';
+        const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: txt, target }) });
+        if (!r.ok) return;
+        const j = await r.json();
+        const translated = String(j?.translated || '').trim();
+        if (!translated) return;
+        const helper = `[TranslateHelper]${JSON.stringify({ translated })}`;
+        room.localParticipant.sendChatMessage(helper).catch(() => void 0);
+      } catch {}
+    };
+    room.on(RoomEvent.DataReceived as any, onData as any);
     return () => {
       try { (room as any).off((RoomEvent as any).MessageReceived, onChat); } catch {}
+      try { room.off(RoomEvent.DataReceived as any, onData as any); } catch {}
     };
   }, [room]);
   return null;
