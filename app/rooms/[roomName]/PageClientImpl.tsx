@@ -1011,8 +1011,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   const [container, setContainer] = React.useState<Element | null>(null);
   const transcriptRef = React.useRef<HTMLDivElement | null>(null);
   const translationRef = React.useRef<HTMLDivElement | null>(null);
-  const [pinTranscriptBottom, setPinTranscriptBottom] = React.useState(true);
-  const [pinTranslationBottom, setPinTranslationBottom] = React.useState(true);
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
     const escId = (window as any).CSS?.escape
@@ -1108,11 +1106,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
       {/* Transcript box (4 lines tall) */}
       <div
         ref={transcriptRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 80;
-          setPinTranscriptBottom(nearBottom);
-        }}
         style={{
           width: '100%',
           overflowY: 'auto',
@@ -1146,11 +1139,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
       {/* Translation box (4 lines tall) */}
       <div
         ref={translationRef}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const nearBottom = el.scrollHeight - (el.scrollTop + el.clientHeight) < 80;
-          setPinTranslationBottom(nearBottom);
-        }}
         style={{
           width: '100%',
           overflowY: 'auto',
