@@ -13,6 +13,10 @@ export type TranscriberCallbacks = {
   onStarted?: () => void;
 };
 
+const VAD_THRESHOLD = Number(process.env.NEXT_PUBLIC_VAD_THRESHOLD ?? '0.5');
+const VAD_SILENCE_MS = Number(process.env.NEXT_PUBLIC_VAD_SILENCE_MS ?? '450');
+const VAD_PREFIX_MS = Number(process.env.NEXT_PUBLIC_VAD_PREFIX_MS ?? '200');
+
 export function startOpenAIRealtimeTranscriber(
   stream: MediaStream,
   callbacks: TranscriberCallbacks = {}
@@ -24,6 +28,12 @@ export function startOpenAIRealtimeTranscriber(
 
   // Add mic track
   const track = stream.getAudioTracks()[0];
+  try {
+    // Reduce capture-side latency by disabling heavy processing
+    track.applyConstraints?.({ echoCancellation: false as any, noiseSuppression: false as any, autoGainControl: false as any });
+    // Hint to encoder/stack that this is speech
+    (track as any).contentHint = 'speech';
+  } catch {}
   if (track) pc.addTrack(track, stream);
 
   // Data channel for control + events
@@ -36,9 +46,9 @@ export function startOpenAIRealtimeTranscriber(
         input_audio_transcription: { model: 'gpt-4o-transcribe' },
         turn_detection: {
           type: 'server_vad',
-          threshold: 0.58,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 800,
+          threshold: VAD_THRESHOLD,
+          prefix_padding_ms: VAD_PREFIX_MS,
+          silence_duration_ms: VAD_SILENCE_MS,
           idle_timeout_ms: null,
           create_response: false,
           interrupt_response: true,
