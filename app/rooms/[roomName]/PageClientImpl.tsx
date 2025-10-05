@@ -125,20 +125,6 @@ export function PageClientImpl(props: {
                 <option value="en">English (en)</option>
               </select>
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label htmlFor="stt-lang-prejoin">Spoken language</label>
-              <select id="stt-lang-prejoin" defaultValue={(typeof navigator !== 'undefined' ? (navigator.language || 'en').slice(0,2) : 'en')} style={{ padding: '4px 8px' }}>
-                <option value="auto">Auto-detect</option>
-                <option value="en">English (en)</option>
-                <option value="es">Spanish (es)</option>
-                <option value="fr">French (fr)</option>
-                <option value="de">German (de)</option>
-                <option value="it">Italian (it)</option>
-                <option value="pt">Portuguese (pt)</option>
-                <option value="ja">Japanese (ja)</option>
-                <option value="zh">Chinese (zh)</option>
-              </select>
-            </div>
           </div>
         </div>
       ) : (
@@ -1103,6 +1089,15 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   }, [tblocks]);
 
   if (!container) return null;
+  const isLocal = participants.some((p) => p.identity === identity && p.isLocal);
+  const langs = [
+    ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
+  ];
+  const currentTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
+  const handleTargetChange = (e: any)=>{
+    const val = e.target.value;
+    try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
+  };
   return createPortal(
     <div
       style={{
@@ -1127,7 +1122,12 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         overflow: 'hidden',
       }}
     >
-      {/* Transcript box (4 lines tall) */}
+      {isLocal && (
+        <select value={currentTarget} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
+          {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
+        </select>
+      )}
+      {/* Transcript box (3 lines) */}
       <div
         ref={transcriptRef}
         style={{
