@@ -883,7 +883,7 @@ function CaptionsTilesOverlay(props: { room: Room }) {
                     const blocks = cur.blocks.slice();
                     if (idx !== -1) blocks[idx] = { id: sid, ts: now, text: slice };
                     else blocks.push({ id: sid, ts: now, text: slice });
-                    const next: SpeakerState = { ...cur, blocks };
+                    const next: SpeakerState = { ...cur, blocks: blocks.sort((a,b)=>a.ts-b.ts) };
                     if (cur.active?.id === sid) next.active = undefined;
                     return { ...prev, [id]: next };
                   } else {
@@ -897,17 +897,17 @@ function CaptionsTilesOverlay(props: { room: Room }) {
                 if (last && (slice.startsWith(last.text) || last.text.startsWith(slice))) {
                   const next = blocks.slice();
                   next[next.length - 1] = { ...last, ts: now, text: slice };
-                  return { ...prev, [id]: { ...cur, blocks: next } };
+                  return { ...prev, [id]: { ...cur, blocks: next.sort((a,b)=>a.ts-b.ts) } };
                 }
                 const isTiny = slice.split(/\s+/).length < 4;
                 const endsSentence = /[.!?…]$/.test(last?.text || '');
                 const gapShort = last ? now - last.ts < 1200 : false;
                 if (last && (gapShort || !endsSentence) && isTiny) {
                   const merged = { ...last, ts: now, text: (last.text + ' ' + slice).trim() };
-                  return { ...prev, [id]: { ...cur, blocks: [...blocks.slice(0, -1), merged] } };
+                  return { ...prev, [id]: { ...cur, blocks: [...blocks.slice(0, -1), merged].sort((a,b)=>a.ts-b.ts) } };
                 }
                 const newBlock: Block = { id: nextIdRef.current++, ts: now, text: slice };
-                return { ...prev, [id]: { ...cur, blocks: [...blocks, newBlock] } };
+                return { ...prev, [id]: { ...cur, blocks: [...blocks, newBlock].sort((a,b)=>a.ts-b.ts) } };
               });
             }
           }
@@ -928,7 +928,7 @@ function CaptionsTilesOverlay(props: { room: Room }) {
                   } else {
                     tblocks.push({ id: sid, ts: now, text: slice });
                   }
-                  return { ...prev, [id]: { ...cur, tblocks } };
+                  return { ...prev, [id]: { ...cur, tblocks: tblocks.sort((a,b)=>a.ts-b.ts) } };
                 }
                 // Fallback heuristic merge (older agents)
                 const blocks = cur.tblocks;
@@ -938,10 +938,10 @@ function CaptionsTilesOverlay(props: { room: Room }) {
                 const gapShort = last ? now - last.ts < 1200 : false;
                 if (last && (gapShort || !endsSentence) && isTiny) {
                   const merged = { ...last, ts: now, text: (last.text + ' ' + slice).trim() };
-                  return { ...prev, [id]: { ...cur, tblocks: [...blocks.slice(0, -1), merged] } };
+                  return { ...prev, [id]: { ...cur, tblocks: [...blocks.slice(0, -1), merged].sort((a,b)=>a.ts-b.ts) } };
                 }
                 const newBlock: Block = { id: nextIdRef.current++, ts: now, text: slice };
-                return { ...prev, [id]: { ...cur, tblocks: [...blocks, newBlock] } };
+                return { ...prev, [id]: { ...cur, tblocks: [...blocks, newBlock].sort((a,b)=>a.ts-b.ts) } };
               });
             }
           }
@@ -965,10 +965,10 @@ function CaptionsTilesOverlay(props: { room: Room }) {
               const gapShort = last ? now - last.ts < 1200 : false;
               if (last && (gapShort || !endsSentence) && isTiny) {
                 const merged = { ...last, ts: now, text: (last.text + ' ' + slice).trim() };
-                return { ...prev, [id]: { ...cur, blocks: [...blocks.slice(0, -1), merged] } };
+                return { ...prev, [id]: { ...cur, blocks: [...blocks.slice(0, -1), merged].sort((a,b)=>a.ts-b.ts) } };
               }
               const newBlock: Block = { id: nextIdRef.current++, ts: now, text: slice };
-              return { ...prev, [id]: { ...cur, blocks: [...blocks, newBlock] } };
+              return { ...prev, [id]: { ...cur, blocks: [...blocks, newBlock].sort((a,b)=>a.ts-b.ts) } };
             });
           }
         }
@@ -989,10 +989,10 @@ function CaptionsTilesOverlay(props: { room: Room }) {
               const gapShort = last ? now - last.ts < 1200 : false;
               if (last && (gapShort || !endsSentence) && isTiny) {
                 const merged = { ...last, ts: now, text: (last.text + ' ' + slice).trim() };
-                return { ...prev, [id]: { ...cur, tblocks: [...blocks.slice(0, -1), merged] } };
+                return { ...prev, [id]: { ...cur, tblocks: [...blocks.slice(0, -1), merged].sort((a,b)=>a.ts-b.ts) } };
               }
               const newBlock: Block = { id: nextIdRef.current++, ts: now, text: slice };
-              return { ...prev, [id]: { ...cur, tblocks: [...blocks, newBlock] } };
+              return { ...prev, [id]: { ...cur, tblocks: [...blocks, newBlock].sort((a,b)=>a.ts-b.ts) } };
             });
           }
         }
