@@ -45,6 +45,7 @@ export function PageClientImpl(props: {
   hq: boolean;
   codec: VideoCodec;
 }) {
+  const forkedStreamRef = React.useRef<MediaStream | null>(null);
   const [preJoinChoices, setPreJoinChoices] = React.useState<LocalUserChoices | undefined>(
     undefined,
   );
@@ -307,6 +308,7 @@ function VideoConferenceComponent(props: {
               try {
                 const forked = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const forkTrack = forked.getAudioTracks()?.[0];
+                forkedStreamRef.current = forked;
                 console.log('Forked mic acquired for captions:', forkTrack?.label || '(no label)');
               } catch (e) {
                 console.warn('Forked mic unavailable; falling back to LiveKit track for captions.', e);
@@ -322,11 +324,13 @@ function VideoConferenceComponent(props: {
                 mediaStreamTrack = gum.getAudioTracks()?.[0];
               } catch {}
             }
-            if (!mediaStreamTrack) {
-              console.warn('Local transcriber: no microphone track available');
+            const stream: MediaStream | null = CAPTIONS_SRC === 'fork'
+              ? (forkedStreamRef.current || null)
+              : (mediaStreamTrack ? new MediaStream([mediaStreamTrack]) : null);
+            if (!stream) {
+              console.warn('Local transcriber: no microphone stream available');
               return;
             }
-            const stream = new MediaStream([mediaStreamTrack]);
             const supportedMime = typeof MediaRecorder !== 'undefined' &&
               (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
