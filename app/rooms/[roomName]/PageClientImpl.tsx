@@ -37,6 +37,7 @@ const CONN_DETAILS_ENDPOINT =
   process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT ?? '/api/connection-details';
 const SHOW_SETTINGS_MENU = process.env.NEXT_PUBLIC_SHOW_SETTINGS_MENU == 'true';
 const CAPTIONS_MODE = (process.env.NEXT_PUBLIC_CAPTIONS_MODE || 'agent').toLowerCase();
+const CAPTIONS_SRC = (process.env.NEXT_PUBLIC_CAPTIONS_SRC || 'lk').toLowerCase(); // 'fork' | 'lk'
 
 export function PageClientImpl(props: {
   roomName: string;
@@ -301,10 +302,21 @@ function VideoConferenceComponent(props: {
       if (captions && CAPTIONS_MODE === 'client') {
         (async () => {
           try {
+            // Step 1: Forked mic stream support (no STT yet)
+            if (CAPTIONS_SRC === 'fork') {
+              try {
+                const forked = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const forkTrack = forked.getAudioTracks()?.[0];
+                console.log('Forked mic acquired for captions:', forkTrack?.label || '(no label)');
+              } catch (e) {
+                console.warn('Forked mic unavailable; falling back to LiveKit track for captions.', e);
+              }
+            }
+
             const sttLang = (window as any).__txat_stt_lang as string | undefined;
             const trackPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
             let mediaStreamTrack = (trackPub as any)?.audioTrack?.mediaStreamTrack || (trackPub as any)?.track?.mediaStreamTrack;
-            if (!mediaStreamTrack) {
+            if (!mediaStreamTrack && CAPTIONS_SRC !== 'fork') {
               try {
                 const gum = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaStreamTrack = gum.getAudioTracks()?.[0];
