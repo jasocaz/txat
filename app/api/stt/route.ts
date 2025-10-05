@@ -7,9 +7,8 @@ export async function POST(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const lang = url.searchParams.get('lang') || undefined;
-    // Use Whisper by default for /audio/transcriptions compatibility
-    const envModel = process.env.OPENAI_STT_MODEL || 'whisper-1';
-    const model = /gpt-4o/i.test(envModel) ? 'whisper-1' : envModel;
+    // Respect configured model (e.g., gpt-4o-transcribe). No forced remap.
+    const model = process.env.OPENAI_STT_MODEL || 'gpt-4o-transcribe';
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return new NextResponse('Missing OPENAI_API_KEY', { status: 500 });
@@ -34,19 +33,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ text: '' });
     }
 
-    // Normalize to a plain 'audio/webm' filename; avoid codec params in type header
-    const safeFile = new File([blob], 'audio.webm', { type: 'audio/webm' });
-
-    // Use OpenAI SDK for robust multipart encoding
+    // Normalize using original bytes and a safe filename via OpenAI.toFile
     const openai = new OpenAI({ apiKey });
     try {
+      const buf = await blob.arrayBuffer();
+      const btype = (blob.type || '').toLowerCase();
+      const ext = btype.includes('webm')
+        ? 'webm'
+        : btype.includes('mp4')
+        ? 'mp4'
+        : btype.includes('mpeg') || btype.includes('mp3')
+        ? 'mp3'
+        : btype.includes('wav')
+        ? 'wav'
+        : 'webm';
+      const normalizedBlob = new Blob([buf], { type: btype || 'audio/webm' });
+      const file = await (OpenAI as any).toFile(normalizedBlob, `audio.${ext}`);
+
       const transcription = await openai.audio.transcriptions.create({
-        file: safeFile,
+        file,
         model,
         language: lang || undefined,
-        response_format: 'text',
       } as any);
-      const text = transcription ? String(transcription as any).trim?.() || String(transcription) : '';
+      const text = (transcription as any)?.text ? String((transcription as any).text).trim() : '';
       return NextResponse.json({ text });
     } catch (err: any) {
       const msg = err?.message || 'OpenAI STT error';
