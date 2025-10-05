@@ -597,7 +597,17 @@ function VideoConferenceComponent(props: {
       const base = formatChatMessageLinks(message);
       const isTranscript = message.startsWith('[Transcript]');
       const isTranslation = message.startsWith('[Translation]');
-      const isTranslatedChat = message.startsWith('[TranslateHelper]');
+      if (message.startsWith('[TL]')) {
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, opacity: 0.9 }}>
+            <span style={{ fontSize: 11, lineHeight: 1, padding: '2px 6px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.25)' }}>
+              ↻
+            </span>
+            {message.slice(4)}
+          </span>
+        );
+      }
+      const isTranslatedChat = false;
       if (!isTranscript && !isTranslation) return base;
       const label = isTranscript ? 'Transcript' : 'Translation';
       return (
@@ -714,11 +724,11 @@ function ChatTranslator(props: { room: Room }) {
     const onChat = async (msg: any) => {
       try {
         const txt: string = String(msg?.message || '');
-        if (!txt || txt.startsWith('[TranslateHelper]')) return;
+        if (!txt || txt.startsWith('[TL]')) return; // ignore helper messages
         const from = msg?.from?.identity;
-        if (!from) return;
-        if (room?.localParticipant?.identity === from) return;
+        if (!from || from !== room.localParticipant.identity) return; // only translate our own outgoing
         const target = (window as any).__txat_target_lang || 'en';
+        if (!target) return;
         const r = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -728,36 +738,13 @@ function ChatTranslator(props: { room: Room }) {
         const j = await r.json();
         const translated = String(j?.translated || '').trim();
         if (!translated) return;
-        const helper = `[TranslateHelper]${JSON.stringify({ translated })}`;
+        const helper = `[TL] ${translated}`;
         room.localParticipant.sendChatMessage(helper).catch(() => void 0);
       } catch {}
     };
-    (room as any).on((RoomEvent as any).MessageReceived, onChat);
-    // Also handle LiveKit Components chat which relays via DataReceived on topic 'lk-chat-topic'
-    const onData = async (payload: Uint8Array, participant?: any, _k?: any, topic?: string) => {
-      if (topic !== 'lk-chat-topic') return;
-      try {
-        const txtRaw = new TextDecoder().decode(payload);
-        let txt = txtRaw;
-        try { const j = JSON.parse(txtRaw); txt = String(j?.message ?? txtRaw); } catch {}
-        if (!txt || txt.startsWith('[TranslateHelper]')) return;
-        const from = participant?.identity;
-        if (!from) return;
-        if (room?.localParticipant?.identity === from) return;
-        const target = (window as any).__txat_target_lang || 'en';
-        const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: txt, target }) });
-        if (!r.ok) return;
-        const j = await r.json();
-        const translated = String(j?.translated || '').trim();
-        if (!translated) return;
-        const helper = `[TranslateHelper]${JSON.stringify({ translated })}`;
-        room.localParticipant.sendChatMessage(helper).catch(() => void 0);
-      } catch {}
-    };
-    room.on(RoomEvent.DataReceived as any, onData as any);
+    (room as any).on('messageReceived', onChat);
     return () => {
-      try { (room as any).off((RoomEvent as any).MessageReceived, onChat); } catch {}
-      try { room.off(RoomEvent.DataReceived as any, onData as any); } catch {}
+      (room as any).off('messageReceived', onChat);
     };
   }, [room]);
   return null;
