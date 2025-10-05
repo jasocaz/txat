@@ -380,7 +380,7 @@ function VideoConferenceComponent(props: {
                     speaker: room.localParticipant.identity,
                     text: lastFinalText,
                     final: true,
-                    sentenceId: ++sid,
+                    sentenceId: sid || (sid = 1),
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
