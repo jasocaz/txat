@@ -337,14 +337,22 @@ function VideoConferenceComponent(props: {
               const s = forkedStreamRef.current;
               if (!s) return;
               let sid = 0;
+              let lastFinalText = '';
               const stop = startOpenAIRealtimeTranscriber(s, {
                 onDelta: (text) => {
                   // Drop punctuation-only deltas to avoid stray '.' or '?' lines
                   if (/^[\s.!?…]+$/.test(text)) return;
+                  const cleaned = String(text).trim();
+                  if (!cleaned) return;
+                  // Suppress carryover of last word(s) from the just-finalized line
+                  if (lastFinalText) {
+                    const tail = lastFinalText.split(/\s+/).slice(-3).join(' ');
+                    if (lastFinalText.endsWith(cleaned) || tail.endsWith(cleaned)) return;
+                  }
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
-                    text,
+                    text: cleaned,
                     final: false,
                     sentenceId: sid || (sid = 1),
                     timestamp: new Date().toISOString(),
@@ -357,10 +365,11 @@ function VideoConferenceComponent(props: {
                 onCompleted: async (text) => {
                   // Guard against punctuation-only completions (merge handled by model already)
                   if (/^[\s.!?…]+$/.test(text)) return;
+                  lastFinalText = String(text).trim();
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
-                    text,
+                    text: lastFinalText,
                     final: true,
                     sentenceId: ++sid,
                     timestamp: new Date().toISOString(),
@@ -372,7 +381,7 @@ function VideoConferenceComponent(props: {
                   const target = (window as any).__txat_target_lang as string | undefined;
                   if (target) {
                     try {
-                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
+                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: lastFinalText, target }) });
                       if (tr.ok) {
                         const tj = await tr.json();
                         const translatedText = String(tj?.translated || '').trim();
@@ -380,7 +389,7 @@ function VideoConferenceComponent(props: {
                           const tmsg = {
                             type: 'translation',
                             speaker: room.localParticipant.identity,
-                            text,
+                            text: lastFinalText,
                             translatedText,
                             sentenceId: sid,
                             final: true,
