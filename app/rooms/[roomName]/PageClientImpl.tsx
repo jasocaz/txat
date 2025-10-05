@@ -45,7 +45,6 @@ export function PageClientImpl(props: {
   hq: boolean;
   codec: VideoCodec;
 }) {
-  const forkedStreamRef = React.useRef<MediaStream | null>(null);
   const [preJoinChoices, setPreJoinChoices] = React.useState<LocalUserChoices | undefined>(
     undefined,
   );
@@ -162,6 +161,7 @@ function VideoConferenceComponent(props: {
   };
   roomName: string;
 }) {
+  const forkedStreamRef = React.useRef<MediaStream | null>(null);
   const keyProvider = new ExternalE2EEKeyProvider();
   const { worker, e2eePassphrase } = useSetupE2EE();
   const e2eeEnabled = !!(e2eePassphrase && worker);
