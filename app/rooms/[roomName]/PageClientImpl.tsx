@@ -327,6 +327,8 @@ function VideoConferenceComponent(props: {
             let sid = 0;
             rec.ondataavailable = async (e) => {
               if (!e.data || e.data.size === 0) return;
+              // Ignore very small chunks to avoid OpenAI decode errors
+              if (e.data.size < 8000) return;
               // Send to STT proxy
               const form = new FormData();
               form.append('file', e.data, 'chunk.webm');
@@ -374,7 +376,8 @@ function VideoConferenceComponent(props: {
                 }
               }
             };
-            rec.start(700); // ~0.7s chunks for responsiveness
+            // Use slightly larger chunks to improve decoder stability
+            rec.start(1600); // ~1.6s chunks
           } catch (err) {
             console.error('Local transcriber failed:', err);
           }

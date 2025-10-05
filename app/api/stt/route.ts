@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
     if (!blob) {
       return new NextResponse('No audio provided', { status: 400 });
     }
+    // Guard against tiny chunks that often fail decode
+    if ((blob as any).size && (blob as any).size < 6000) {
+      return NextResponse.json({ text: '' });
+    }
 
     // Normalize file type and filename so OpenAI accepts it
     const blobType = (blob.type || '').toLowerCase();
