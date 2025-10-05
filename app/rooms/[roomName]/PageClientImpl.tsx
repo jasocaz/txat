@@ -336,7 +336,8 @@ function VideoConferenceComponent(props: {
             if (CAPTIONS_SRC === 'fork') {
               const s = forkedStreamRef.current;
               if (!s) return;
-              let sid = 0;
+              let nextSid = 1;
+              let currentSid = 0;
               let lastFinalText = '';
               const normalizeTail = (s: string) =>
                 String(s)
@@ -357,12 +358,13 @@ function VideoConferenceComponent(props: {
                     if (w && (tail === w || tail.endsWith(' ' + w))) return;
                   }
                   console.log('ASR delta', cleaned);
+                  if (currentSid === 0) currentSid = nextSid;
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
                     text: cleaned,
                     final: false,
-                    sentenceId: sid || (sid = 1),
+                    sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
@@ -375,12 +377,13 @@ function VideoConferenceComponent(props: {
                   if (/^[\s.!?…]+$/.test(text)) return;
                   lastFinalText = String(text).trim();
                   console.log('ASR final', lastFinalText);
+                  if (currentSid === 0) currentSid = nextSid;
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
                     text: lastFinalText,
                     final: true,
-                    sentenceId: sid || (sid = 1),
+                    sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
@@ -400,7 +403,7 @@ function VideoConferenceComponent(props: {
                             speaker: room.localParticipant.identity,
                             text: lastFinalText,
                             translatedText,
-                            sentenceId: sid,
+                            sentenceId: currentSid,
                             final: true,
                             timestamp: new Date().toISOString(),
                           };
@@ -412,6 +415,8 @@ function VideoConferenceComponent(props: {
                       }
                     } catch {}
                   }
+                  nextSid = currentSid + 1;
+                  currentSid = 0; // reset for next sentence
                 },
               });
               // Mark captions as active for overlay gating
@@ -433,7 +438,8 @@ function VideoConferenceComponent(props: {
                 ? 'audio/mp4'
                 : undefined);
             const rec = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
-            let sid = 0;
+            let nextSid = 1;
+            let currentSid = 0;
             const chunkQueue: Blob[] = [];
             rec.ondataavailable = async (e) => {
               if (!e.data || e.data.size === 0) return;
@@ -473,7 +479,7 @@ function VideoConferenceComponent(props: {
                 speaker: room.localParticipant.identity,
                 text,
                 final,
-                sentenceId: final ? ++sid : sid || (sid = 1),
+                sentenceId: final ? ++currentSid : currentSid || (currentSid = nextSid),
                 timestamp: new Date().toISOString(),
               };
               room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
@@ -490,7 +496,7 @@ function VideoConferenceComponent(props: {
                         speaker: room.localParticipant.identity,
                         text,
                         translatedText,
-                        sentenceId: sid,
+                        sentenceId: currentSid,
                         final: true,
                         timestamp: new Date().toISOString(),
                       };
