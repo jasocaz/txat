@@ -303,10 +303,27 @@ function VideoConferenceComponent(props: {
           try {
             const sttLang = (window as any).__txat_stt_lang as string | undefined;
             const trackPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-            const mediaStreamTrack = trackPub?.audioTrack?.mediaStream?.getAudioTracks?.()?.[0];
-            if (!mediaStreamTrack) return;
+            let mediaStreamTrack = (trackPub as any)?.audioTrack?.mediaStreamTrack || (trackPub as any)?.track?.mediaStreamTrack;
+            if (!mediaStreamTrack) {
+              try {
+                const gum = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaStreamTrack = gum.getAudioTracks()?.[0];
+              } catch {}
+            }
+            if (!mediaStreamTrack) {
+              console.warn('Local transcriber: no microphone track available');
+              return;
+            }
             const stream = new MediaStream([mediaStreamTrack]);
-            const rec = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            const supportedMime = typeof MediaRecorder !== 'undefined' &&
+              (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/webm')
+                ? 'audio/webm'
+                : MediaRecorder.isTypeSupported('audio/mp4')
+                ? 'audio/mp4'
+                : undefined);
+            const rec = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
             let sid = 0;
             rec.ondataavailable = async (e) => {
               if (!e.data || e.data.size === 0) return;
