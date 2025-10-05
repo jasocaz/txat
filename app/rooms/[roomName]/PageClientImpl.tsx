@@ -338,6 +338,12 @@ function VideoConferenceComponent(props: {
               if (!s) return;
               let sid = 0;
               let lastFinalText = '';
+              const normalizeTail = (s: string) =>
+                String(s)
+                  .replace(/[\s]+/g, ' ')
+                  .replace(/[.!?…]+$/g, '')
+                  .trim()
+                  .toLowerCase();
               const stop = startOpenAIRealtimeTranscriber(s, {
                 onDelta: (text) => {
                   // Drop punctuation-only deltas to avoid stray '.' or '?' lines
@@ -346,8 +352,9 @@ function VideoConferenceComponent(props: {
                   if (!cleaned) return;
                   // Suppress carryover of last word(s) from the just-finalized line
                   if (lastFinalText) {
-                    const tail = lastFinalText.split(/\s+/).slice(-3).join(' ');
-                    if (lastFinalText.endsWith(cleaned) || tail.endsWith(cleaned)) return;
+                    const tail = normalizeTail(lastFinalText).split(' ').slice(-3).join(' ');
+                    const w = normalizeTail(cleaned);
+                    if (w && (tail === w || tail.endsWith(' ' + w))) return;
                   }
                   const payload = {
                     type: 'transcription',
