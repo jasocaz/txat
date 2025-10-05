@@ -389,12 +389,29 @@ function VideoConferenceComponent(props: {
                   if (/^[\s.!?…]+$/.test(text)) return;
                   const cleaned = String(text).trim();
                   if (!cleaned) return;
-                  // Suppress carryover of last word(s) from the just-finalized line
-                  if (lastFinalText) {
-                    const tail = normalizeTail(lastFinalText).split(' ').slice(-3).join(' ');
-                    const w = normalizeTail(cleaned);
-                    if (w && (tail === w || tail.endsWith(' ' + w))) return;
-                  }
+                    // Smarter duplicate suppression:
+                    // - If we already have an active interim, skip only if the delta is
+                    //   1-2 words that are already present at the end of the interim.
+                    // - If there is no active interim yet, suppress obvious carryover from
+                    //   the previous final's trailing words (last 3 words).
+                    {
+                      const deltaNorm = normalizeTail(cleaned);
+                      const deltaWordCount = deltaNorm ? deltaNorm.split(' ').length : 0;
+                      const interimNorm = normalizeTail(currentInterimText);
+                      if (currentInterimText) {
+                        if (
+                          deltaWordCount <= 2 &&
+                          (interimNorm === deltaNorm || interimNorm.endsWith(' ' + deltaNorm))
+                        ) {
+                          return;
+                        }
+                      } else if (lastFinalText) {
+                        const tail = normalizeTail(lastFinalText).split(' ').slice(-3).join(' ');
+                        if (deltaNorm && (tail === deltaNorm || tail.endsWith(' ' + deltaNorm))) {
+                          return;
+                        }
+                      }
+                    }
                   console.log('ASR delta', cleaned);
                   if (currentSid === 0) currentSid = nextSid;
                     currentInterimText = cleaned;
@@ -409,7 +426,11 @@ function VideoConferenceComponent(props: {
                     sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
                   } as const;
-                  room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                    // Send interims as unreliable for low-latency fanout to other participants
+                    room.localParticipant.publishData(
+                      new TextEncoder().encode(JSON.stringify(payload)),
+                      { reliable: false, topic: 'captions' as any }
+                    ).catch(() => {});
                   try {
                     window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
                   } catch {}
