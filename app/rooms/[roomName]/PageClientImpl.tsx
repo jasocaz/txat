@@ -597,6 +597,7 @@ function VideoConferenceComponent(props: {
       const base = formatChatMessageLinks(message);
       const isTranscript = message.startsWith('[Transcript]');
       const isTranslation = message.startsWith('[Translation]');
+      const isTranslatedChat = message.startsWith('[TranslateHelper]');
       if (!isTranscript && !isTranslation) return base;
       const label = isTranscript ? 'Transcript' : 'Translation';
       return (
@@ -621,14 +622,48 @@ function VideoConferenceComponent(props: {
     []
   );
 
+  // Lightweight translated chat renderer (second line under the original)
+  const translateChatFormatter = React.useCallback(
+    (message: string) => {
+      if (!message.startsWith('[TranslateHelper]')) return null as any;
+      try {
+        const payload = JSON.parse(message.replace(/^\[TranslateHelper\]/, '')) as { translated: string };
+        const text = payload?.translated || '';
+        if (!text) return null as any;
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, opacity: 0.95 }}>
+            <span
+              aria-label="Translated"
+              title="Translated"
+              style={{
+                fontSize: 11,
+                lineHeight: 1,
+                padding: '2px 6px',
+                borderRadius: 6,
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid rgba(255,255,255,0.25)'
+              }}
+            >
+              ↻
+            </span>
+            <span>{text}</span>
+          </span>
+        );
+      } catch {}
+      return null as any;
+    },
+    []
+  );
+
   return (
     <div className="lk-room-container" style={{ position: 'relative' }}>
       <RoomContext.Provider value={room}>
         <KeyboardShortcuts />
         <CaptionsChatBridge room={room} />
+        <ChatTranslator room={room} />
         <HideAgentTiles />
         <VideoConference
-          chatMessageFormatter={chatFormatter}
+          chatMessageFormatter={(m) => translateChatFormatter(m) || chatFormatter(m)}
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
         />
         <CopyLinkButtonInControlBar />
@@ -668,6 +703,42 @@ function CaptionsChatBridge(props: { room: Room }) {
     room.on(RoomEvent.DataReceived, onData);
     return () => {
       room.off(RoomEvent.DataReceived, onData);
+    };
+  }, [room]);
+  return null;
+}
+
+function ChatTranslator(props: { room: Room }) {
+  const { room } = props;
+  React.useEffect(() => {
+    const onChat = async (payload: Uint8Array, participant?: any, _k?: any, topic?: string) => {
+      // Only process LiveKit chat topic (message payload comes as UTF-8 text)
+      if (topic !== 'chat') return;
+      try {
+        const txt: string = new TextDecoder().decode(payload);
+        if (!txt || txt.startsWith('[TranslateHelper]')) return;
+        const from = participant?.identity;
+        if (!from) return;
+        // Skip echo for our own messages; users already see what they typed
+        if (room?.localParticipant?.identity === from) return;
+        const target = (window as any).__txat_target_lang || 'en';
+        const r = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: txt, target }),
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        const translated = String(j?.translated || '').trim();
+        if (!translated) return;
+        const helper = `[TranslateHelper]${JSON.stringify({ translated })}`;
+        // Send helper message locally so it renders right after the original
+        room.localParticipant.sendChatMessage(helper).catch(() => void 0);
+      } catch {}
+    };
+    room.on(RoomEvent.DataReceived as any, onChat as any);
+    return () => {
+      room.off(RoomEvent.DataReceived as any, onChat as any);
     };
   }, [room]);
   return null;
