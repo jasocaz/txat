@@ -186,6 +186,11 @@ function VideoConferenceComponent(props: {
 
   const room = React.useMemo(() => new Room(roomOptions), []);
 
+  // Expose room globally for debugging regardless of connection state
+  React.useEffect(() => {
+    try { (globalThis as any).__txat_room = room; } catch {}
+  }, [room]);
+
   React.useEffect(() => {
     if (e2eeEnabled) {
       keyProvider
