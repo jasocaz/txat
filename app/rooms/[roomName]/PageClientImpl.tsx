@@ -734,7 +734,8 @@ function ChatTranslator(props: { room: Room }) {
         const txt: string = String(msg?.message || '');
         if (!txt || txt.startsWith('[TL]')) return; // ignore helper messages
         const from = msg?.from?.identity;
-        if (!from || from !== room.localParticipant.identity) return; // only translate our own outgoing
+        const isSelf = !msg?.from || from === room.localParticipant.identity;
+        if (!isSelf) return; // only translate our own outgoing here
         const target = (window as any).__txat_target_lang || 'en';
         if (!target) return;
         const r = await fetch('/api/translate', {
