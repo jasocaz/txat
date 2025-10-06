@@ -749,6 +749,8 @@ function ChatTranslator(props: { room: Room }) {
         if (!translated) return;
         const helper = `[TL] ${translated}`;
         room.localParticipant.sendChatMessage(helper).catch(() => void 0);
+        // Locally insert bubble so sender sees it even if alone
+        try { (room as any).emit?.('messageReceived', { from: room.localParticipant, message: helper }); } catch {}
       } catch {}
     };
     (room as any).on('messageReceived', onChat);
