@@ -11,6 +11,7 @@ export type TranscriberCallbacks = {
   onCompleted?: (text: string) => void;
   onError?: (message: string) => void;
   onStarted?: () => void;
+  onStatusChange?: (status: 'live' | 'reconnecting' | 'paused') => void;
 };
 
 const VAD_THRESHOLD = Number(process.env.NEXT_PUBLIC_VAD_THRESHOLD ?? '0.5');
@@ -21,7 +22,7 @@ export function startOpenAIRealtimeTranscriber(
   stream: MediaStream,
   callbacks: TranscriberCallbacks = {}
 ): () => void {
-  const { onDelta, onCompleted, onError, onStarted } = callbacks;
+  const { onDelta, onCompleted, onError, onStarted, onStatusChange } = callbacks;
 
   const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   let dc: RTCDataChannel | null = null;
@@ -37,6 +38,10 @@ export function startOpenAIRealtimeTranscriber(
   if (track) pc.addTrack(track, stream);
 
   // Data channel for control + events
+  const setStatus = (s: 'live' | 'reconnecting' | 'paused') => {
+    try { onStatusChange?.(s); } catch {}
+  };
+
   dc = pc.createDataChannel('signaling');
   dc.onopen = () => {
     try {
@@ -79,9 +84,22 @@ export function startOpenAIRealtimeTranscriber(
     } catch {}
   };
 
+  // Map connection states to status
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === 'connected') setStatus('live');
+    else if (s === 'connecting') setStatus('reconnecting');
+    else if (s === 'failed' || s === 'disconnected' || s === 'closed') setStatus('paused');
+  };
+  pc.oniceconnectionstatechange = () => {
+    const s = pc.iceConnectionState;
+    if (s === 'failed' || s === 'disconnected') setStatus('reconnecting');
+  };
+
   // Start SDP exchange
   (async () => {
     try {
+      setStatus('reconnecting');
       const tokenResp = await fetch('/api/realtime-session', { method: 'POST' });
       if (!tokenResp.ok) throw new Error(await tokenResp.text());
       const { client_secret } = await tokenResp.json();
@@ -97,6 +115,7 @@ export function startOpenAIRealtimeTranscriber(
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
     } catch (e: any) {
       onError?.(String(e?.message || e));
+      setStatus('paused');
     }
   })();
 
@@ -108,6 +127,7 @@ export function startOpenAIRealtimeTranscriber(
       pc.getSenders().forEach((s) => s.track && s.track.stop());
       pc.close();
     } catch {}
+    setStatus('paused');
   };
 }
 
