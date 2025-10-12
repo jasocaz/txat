@@ -699,9 +699,8 @@ function isAgentParticipant(p: any): boolean {
 }
 
 function TranscribingPillInControlBar() {
-  const participants = useParticipants();
-  const agentPresent = participants.some((p) => isAgentParticipant(p));
   const [container, setContainer] = React.useState<Element | null>(null);
+  const [status, setStatus] = React.useState<'live'|'reconnecting'|'paused'>('paused');
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
     const el = document.querySelector('.lk-control-bar');
@@ -719,6 +718,33 @@ function TranscribingPillInControlBar() {
     obs.observe(document.body, { childList: true, subtree: true });
     return () => obs.disconnect();
   }, []);
+  // Listen for realtime transcriber status events
+  React.useEffect(() => {
+    const onStatus = (e: any) => {
+      const s = e?.detail as any;
+      if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
+    };
+    try { window.addEventListener('txat_captions_status' as any, onStatus as any); } catch {}
+    return () => { try { window.removeEventListener('txat_captions_status' as any, onStatus as any); } catch {} };
+  }, []);
+  // Hide legacy Transcribing button if present
+  React.useEffect(() => {
+    if (!container) return;
+    const hide = () => {
+      const btns = Array.from(container.querySelectorAll('button')) as HTMLButtonElement[];
+      btns.forEach((b) => {
+        const txt = (b.textContent || '').toLowerCase();
+        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+        if (txt.includes('transcribing') || aria.includes('transcrib')) {
+          (b as HTMLButtonElement).style.display = 'none';
+        }
+      });
+    };
+    hide();
+    const obs = new MutationObserver(hide);
+    obs.observe(container, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [container]);
   const pill = (
     <div
       aria-label="Transcribing"
@@ -729,12 +755,12 @@ function TranscribingPillInControlBar() {
         userSelect: 'none',
         order: -1,
         marginRight: 12,
-        border: agentPresent ? '2px solid #e5484d' : '1px solid rgba(255,255,255,0.2)',
-        color: agentPresent ? '#e5484d' : 'rgba(255,255,255,0.8)',
-        background: agentPresent ? 'rgba(229,72,77,0.08)' : 'rgba(255,255,255,0.06)',
+        border: status === 'live' ? '1px solid rgba(255,255,255,0.2)' : status === 'reconnecting' ? '2px solid #f5a524' : '2px solid #e5484d',
+        color: status === 'live' ? 'rgba(255,255,255,0.8)' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
+        background: status === 'live' ? 'rgba(255,255,255,0.06)' : status === 'reconnecting' ? 'rgba(245,165,36,0.08)' : 'rgba(229,72,77,0.08)',
       }}
     >
-      {agentPresent ? 'Transcribing' : 'Transcribing (off)'}
+      {status === 'live' ? 'Transcribing' : status === 'reconnecting' ? 'Transcribing (reconnecting…)' : 'Transcribing (paused)'}
     </div>
   );
   if (container) return createPortal(pill, container);
@@ -1165,15 +1191,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     setTargetLang(val);
     try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
   };
-  const [status, setStatus] = React.useState<'live'|'reconnecting'|'paused'>('paused');
-  React.useEffect(() => {
-    const on = (e: any) => {
-      const s = e?.detail as any;
-      if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
-    };
-    try { window.addEventListener('txat_captions_status' as any, on as any); } catch {}
-    return () => { try { window.removeEventListener('txat_captions_status' as any, on as any); } catch {} };
-  }, []);
   if (!container) return null;
   return createPortal(
     <div
@@ -1199,22 +1216,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         overflow: 'hidden',
       }}
     >
-      <div
-        aria-label="Transcribing status"
-        style={{
-          position: 'absolute',
-          top: 4,
-          left: 6,
-          fontSize: 12,
-          padding: '2px 6px',
-          borderRadius: 4,
-          border: status === 'live' ? '1px solid rgba(255,255,255,0.3)' : status === 'reconnecting' ? '1px solid #f5a524' : '1px solid #e5484d',
-          color: status === 'live' ? 'rgba(255,255,255,0.9)' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
-          background: status === 'live' ? 'rgba(255,255,255,0.08)' : status === 'reconnecting' ? 'rgba(245,165,36,0.10)' : 'rgba(229,72,77,0.10)',
-        }}
-      >
-        {status === 'live' ? 'Live' : status === 'reconnecting' ? 'Reconnecting…' : 'Paused'}
-      </div>
       {isLocal && (
         <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
