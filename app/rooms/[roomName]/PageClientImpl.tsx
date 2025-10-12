@@ -487,85 +487,7 @@ function VideoConferenceComponent(props: {
               return; // do not run legacy MediaRecorder path
             }
 
-            const supportedMime = typeof MediaRecorder !== 'undefined' &&
-              (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/webm')
-                ? 'audio/webm'
-                : MediaRecorder.isTypeSupported('audio/mp4')
-                ? 'audio/mp4'
-                : undefined);
-            const rec = supportedMime ? new MediaRecorder(stream, { mimeType: supportedMime }) : new MediaRecorder(stream);
-            let nextSid = 1;
-            let currentSid = 0;
-            const chunkQueue: Blob[] = [];
-            rec.ondataavailable = async (e) => {
-              if (!e.data || e.data.size === 0) return;
-              // Skip while mic muted/disabled
-              const pubAny: any = room.localParticipant.getTrackPublication(Track.Source.Microphone);
-              const micEnabled = room.localParticipant.isMicrophoneEnabled && !pubAny?.isMuted && !pubAny?.muted;
-              if (!micEnabled) return;
-              // Ignore very small chunks to avoid OpenAI decode errors
-              if (e.data.size < 8000) return;
-
-              // Batch multiple chunks into a single file (improves container validity)
-              chunkQueue.push(e.data);
-              const totalSize = chunkQueue.reduce((n, b) => n + (b as any).size, 0);
-              if (chunkQueue.length < 3 && totalSize < 120000) return; // wait for ~3 chunks or ~120KB
-
-              const type = (e.data.type || 'audio/webm');
-              const ext = type.includes('webm') ? 'webm' : type.includes('mp4') ? 'mp4' : type.includes('wav') ? 'wav' : type.includes('mpeg') || type.includes('mp3') ? 'mp3' : 'webm';
-              const batched = new Blob(chunkQueue.splice(0, chunkQueue.length), { type });
-
-              // Send to STT proxy
-              const form = new FormData();
-              form.append('file', new File([batched], `clip.${ext}`, { type }));
-              const u = new URL('/api/stt', window.location.origin);
-              if (sttLang && sttLang !== 'auto') u.searchParams.set('lang', sttLang);
-              const r = await fetch(u.toString(), { method: 'POST', body: form });
-              if (!r.ok) return;
-              const j = await r.json();
-              const text = String(j?.text || '').trim();
-              if (!text) return;
-              // Publish interim as active; mark as final when punctuation or short phrase
-              const ends = /[.!?…]$/.test(text);
-              const words = text.split(/\s+/).filter(Boolean).length;
-              const isVeryShort = words <= 3 && text.length <= 20;
-              const final = Boolean(ends || isVeryShort);
-              const payload = {
-                type: 'transcription',
-                speaker: room.localParticipant.identity,
-                text,
-                final,
-                sentenceId: final ? ++currentSid : currentSid || (currentSid = nextSid),
-                timestamp: new Date().toISOString(),
-              };
-              room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
-              if (final) {
-                const target = (window as any).__txat_target_lang as string | undefined;
-                if (target) {
-                  const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
-                  if (tr.ok) {
-                    const tj = await tr.json();
-                    const translatedText = String(tj?.translated || '').trim();
-                    if (translatedText) {
-                      const tmsg = {
-                        type: 'translation',
-                        speaker: room.localParticipant.identity,
-                        text,
-                        translatedText,
-                        sentenceId: currentSid,
-                        final: true,
-                        timestamp: new Date().toISOString(),
-                      };
-                      room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
-                    }
-                  }
-                }
-              }
-            };
-            // Use slightly larger chunks to improve decoder stability
-            rec.start(1600); // ~1.6s chunks
+            // Legacy batch STT path removed; using OpenAI Realtime streaming only
           } catch (err) {
             console.error('Local transcriber failed:', err);
           }
@@ -1243,6 +1165,15 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     setTargetLang(val);
     try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
   };
+  const [status, setStatus] = React.useState<'live'|'reconnecting'|'paused'>('paused');
+  React.useEffect(() => {
+    const on = (e: any) => {
+      const s = e?.detail as any;
+      if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
+    };
+    try { window.addEventListener('txat_captions_status' as any, on as any); } catch {}
+    return () => { try { window.removeEventListener('txat_captions_status' as any, on as any); } catch {} };
+  }, []);
   if (!container) return null;
   return createPortal(
     <div
@@ -1268,6 +1199,22 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         overflow: 'hidden',
       }}
     >
+      <div
+        aria-label="Transcribing status"
+        style={{
+          position: 'absolute',
+          top: 4,
+          left: 6,
+          fontSize: 12,
+          padding: '2px 6px',
+          borderRadius: 4,
+          border: status === 'live' ? '1px solid rgba(255,255,255,0.3)' : status === 'reconnecting' ? '1px solid #f5a524' : '1px solid #e5484d',
+          color: status === 'live' ? 'rgba(255,255,255,0.9)' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
+          background: status === 'live' ? 'rgba(255,255,255,0.08)' : status === 'reconnecting' ? 'rgba(245,165,36,0.10)' : 'rgba(229,72,77,0.10)',
+        }}
+      >
+        {status === 'live' ? 'Live' : status === 'reconnecting' ? 'Reconnecting…' : 'Paused'}
+      </div>
       {isLocal && (
         <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
