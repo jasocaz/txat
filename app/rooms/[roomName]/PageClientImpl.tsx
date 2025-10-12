@@ -766,9 +766,9 @@ function TranscribingPillInControlBar() {
         userSelect: 'none',
         order: -1,
         marginRight: 12,
-        border: status === 'live' ? '1px solid rgba(255,255,255,0.2)' : status === 'reconnecting' ? '2px solid #f5a524' : '2px solid #e5484d',
-        color: status === 'live' ? 'rgba(255,255,255,0.8)' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
-        background: status === 'live' ? 'rgba(255,255,255,0.06)' : status === 'reconnecting' ? 'rgba(245,165,36,0.08)' : 'rgba(229,72,77,0.08)',
+        border: status === 'live' ? '2px solid #22c55e' : status === 'reconnecting' ? '2px solid #f5a524' : '2px solid #e5484d',
+        color: status === 'live' ? '#22c55e' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
+        background: status === 'live' ? 'rgba(34,197,94,0.10)' : status === 'reconnecting' ? 'rgba(245,165,36,0.10)' : 'rgba(229,72,77,0.10)',
       }}
     >
       {status === 'live' ? 'Transcribing' : status === 'reconnecting' ? 'Transcribing (reconnecting…)' : 'Transcribing (paused)'}
