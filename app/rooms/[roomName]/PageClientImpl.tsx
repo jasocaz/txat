@@ -458,6 +458,12 @@ function VideoConferenceComponent(props: {
                     currentInterimText = lastFinalText;
                     commitFinalFromInterim();
                 },
+                onStatusChange: (status) => {
+                  try {
+                    (window as any).__txat_captions_status = status;
+                    window.dispatchEvent(new CustomEvent('txat_captions_status', { detail: status }));
+                  } catch {}
+                },
               });
               // Mirror mute/unmute to fork track
               const toggleFork = () => {
@@ -725,6 +731,11 @@ function TranscribingPillInControlBar() {
       if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
     };
     try { window.addEventListener('txat_captions_status' as any, onStatus as any); } catch {}
+    // initialize from global if available (avoids flashing "paused")
+    try {
+      const cur = (window as any).__txat_captions_status;
+      if (cur === 'live' || cur === 'reconnecting' || cur === 'paused') setStatus(cur);
+    } catch {}
     return () => { try { window.removeEventListener('txat_captions_status' as any, onStatus as any); } catch {} };
   }, []);
   // Hide legacy Transcribing button if present
