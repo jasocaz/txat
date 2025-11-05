@@ -14,12 +14,13 @@ async function mintSession() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
+        model: 'gpt-4o-mini-realtime-preview-2024-12-17',
         voice: 'alloy',
         input_audio_format: 'pcm16',
-        input_audio_transcription: {
-          model: 'whisper-1',
-        },
+        // Transcription disabled due to 429 rate limits - re-enable after upgrading OpenAI tier
+        // input_audio_transcription: {
+        //   model: 'whisper-1',
+        // },
       }),
     });
     if (!resp.ok) {
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const clientSecret = req.headers.get('x-openai-client-secret') || req.nextUrl.searchParams.get('client_secret');
     if (!clientSecret) return new NextResponse('Missing client_secret', { status: 400 });
     try {
-      const resp = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17', {
+      const resp = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/sdp',
