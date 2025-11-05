@@ -17,10 +17,9 @@ async function mintSession() {
         model: 'gpt-4o-mini-realtime-preview-2024-12-17',
         voice: 'alloy',
         input_audio_format: 'pcm16',
-        // Transcription disabled due to 429 rate limits - re-enable after upgrading OpenAI tier
-        // input_audio_transcription: {
-        //   model: 'whisper-1',
-        // },
+        input_audio_transcription: {
+          model: 'whisper-1',
+        },
       }),
     });
     if (!resp.ok) {
