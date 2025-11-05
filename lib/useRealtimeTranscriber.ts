@@ -44,6 +44,7 @@ export function startOpenAIRealtimeTranscriber(
 
   dc = pc.createDataChannel('signaling');
   dc.onopen = () => {
+    console.log('[Realtime] Data channel opened');
     try {
       const sessionConfig = {
         type: 'session.update',
@@ -59,52 +60,72 @@ export function startOpenAIRealtimeTranscriber(
           interrupt_response: true,
         },
       };
+      console.log('[Realtime] Sending session config:', sessionConfig);
       dc?.send(JSON.stringify(sessionConfig));
       onStarted?.();
     } catch (e: any) {
+      console.error('[Realtime] Error in onopen:', e);
       onError?.(String(e?.message || e));
     }
+  };
+
+  dc.onerror = (err) => {
+    console.error('[Realtime] Data channel error:', err);
+  };
+
+  dc.onclose = () => {
+    console.log('[Realtime] Data channel closed');
   };
 
   dc.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
+      console.log('[Realtime] Received message:', msg);
       const t = String(
         msg?.transcript ?? msg?.delta ?? msg?.text ?? ''
       ).replace(/\s+/g, ' ').trim();
       if (!t) return;
       if (msg?.type === 'conversation.item.input_audio_transcription.delta') {
+        console.log('[Realtime] Delta:', t);
         onDelta?.(t);
         return;
       }
       if (msg?.type === 'conversation.item.input_audio_transcription.completed') {
+        console.log('[Realtime] Completed:', t);
         onCompleted?.(t);
         return;
       }
-    } catch {}
+    } catch (e) {
+      console.error('[Realtime] Error parsing message:', e, ev.data);
+    }
   };
 
   // Map connection states to status
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
+    console.log('[Realtime] Connection state:', s);
     if (s === 'connected') setStatus('live');
     else if (s === 'connecting') setStatus('reconnecting');
     else if (s === 'failed' || s === 'disconnected' || s === 'closed') setStatus('paused');
   };
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
+    console.log('[Realtime] ICE connection state:', s);
     if (s === 'failed' || s === 'disconnected') setStatus('reconnecting');
   };
 
   // Start SDP exchange
   (async () => {
     try {
+      console.log('[Realtime] Starting SDP exchange');
       setStatus('reconnecting');
       const tokenResp = await fetch('/api/realtime-session', { method: 'POST' });
       if (!tokenResp.ok) throw new Error(await tokenResp.text());
       const { client_secret } = await tokenResp.json();
+      console.log('[Realtime] Got client_secret, creating offer');
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      console.log('[Realtime] Sending offer to OpenAI');
       const answerResp = await fetch(`/api/realtime-session?client_secret=${encodeURIComponent(client_secret)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
@@ -112,8 +133,11 @@ export function startOpenAIRealtimeTranscriber(
       });
       if (!answerResp.ok) throw new Error(await answerResp.text());
       const answerSdp = await answerResp.text();
+      console.log('[Realtime] Got answer, setting remote description');
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+      console.log('[Realtime] SDP exchange complete');
     } catch (e: any) {
+      console.error('[Realtime] SDP exchange error:', e);
       onError?.(String(e?.message || e));
       setStatus('paused');
     }
