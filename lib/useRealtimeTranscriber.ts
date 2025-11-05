@@ -46,18 +46,18 @@ export function startOpenAIRealtimeTranscriber(
   dc.onopen = () => {
     console.log('[Realtime] Data channel opened');
     try {
+      // The session was already configured with input_audio_transcription during creation
+      // We just need to update turn_detection settings
       const sessionConfig = {
         type: 'session.update',
-        input_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'gpt-4o-transcribe' },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: VAD_THRESHOLD,
-          prefix_padding_ms: VAD_PREFIX_MS,
-          silence_duration_ms: VAD_SILENCE_MS,
-          idle_timeout_ms: null,
-          create_response: false,
-          interrupt_response: true,
+        session: {
+          turn_detection: {
+            type: 'server_vad',
+            threshold: VAD_THRESHOLD,
+            prefix_padding_ms: VAD_PREFIX_MS,
+            silence_duration_ms: VAD_SILENCE_MS,
+            create_response: false,
+          },
         },
       };
       console.log('[Realtime] Sending session config:', sessionConfig);
@@ -80,20 +80,30 @@ export function startOpenAIRealtimeTranscriber(
   dc.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
-      console.log('[Realtime] Received message:', msg);
-      const t = String(
-        msg?.transcript ?? msg?.delta ?? msg?.text ?? ''
-      ).replace(/\s+/g, ' ').trim();
-      if (!t) return;
+      console.log('[Realtime] Received message type:', msg.type, msg);
+      
+      // Handle transcription events
       if (msg?.type === 'conversation.item.input_audio_transcription.delta') {
-        console.log('[Realtime] Delta:', t);
-        onDelta?.(t);
+        const t = String(msg?.delta ?? '').replace(/\s+/g, ' ').trim();
+        if (t) {
+          console.log('[Realtime] Transcription delta:', t);
+          onDelta?.(t);
+        }
         return;
       }
       if (msg?.type === 'conversation.item.input_audio_transcription.completed') {
-        console.log('[Realtime] Completed:', t);
-        onCompleted?.(t);
+        const t = String(msg?.transcript ?? '').replace(/\s+/g, ' ').trim();
+        if (t) {
+          console.log('[Realtime] Transcription completed:', t);
+          onCompleted?.(t);
+        }
         return;
+      }
+      
+      // Log errors
+      if (msg?.type === 'error') {
+        console.error('[Realtime] API Error:', msg);
+        onError?.(String(msg?.error?.message || 'Unknown error'));
       }
     } catch (e) {
       console.error('[Realtime] Error parsing message:', e, ev.data);
