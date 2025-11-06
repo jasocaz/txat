@@ -260,7 +260,6 @@ function VideoConferenceComponent(props: {
         try {
           const target = (window as any).__txat_target_lang as string | undefined;
           const sttLang = (window as any).__txat_stt_lang as string | undefined;
-          console.log('Language prefs from window:', { target, sttLang, identity: room.localParticipant?.identity });
           
           if (target || sttLang) {
             const langPrefs = {
@@ -270,14 +269,10 @@ function VideoConferenceComponent(props: {
               targetLanguage: target,
               timestamp: new Date().toISOString()
             };
-            console.log('Sending language preferences:', langPrefs);
             await room.localParticipant?.publishData?.(
               new TextEncoder().encode(JSON.stringify(langPrefs)),
               { reliable: true, topic: 'captions' as any }
             );
-            console.log('Language preferences sent successfully');
-          } else {
-            console.log('No language preferences to send');
           }
         } catch (e) {
           console.error('Failed to send language preferences:', e);
@@ -304,7 +299,6 @@ function VideoConferenceComponent(props: {
                 const forked = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const forkTrack = forked.getAudioTracks()?.[0];
                 forkedStreamRef.current = forked;
-                console.log('Forked mic acquired for captions:', forkTrack?.label || '(no label)');
               } catch (e) {
                 console.warn('Forked mic unavailable; falling back to LiveKit track for captions.', e);
               }
@@ -420,7 +414,6 @@ function VideoConferenceComponent(props: {
                         }
                       }
                     }
-                  console.log('ASR delta', cleaned);
                   if (currentSid === 0) currentSid = nextSid;
                     currentInterimText = cleaned;
                     if (finalizeTimer) clearTimeout(finalizeTimer);
@@ -452,7 +445,6 @@ function VideoConferenceComponent(props: {
                   // Guard against punctuation-only completions (merge handled by model already)
                   if (/^[\s.!?…]+$/.test(text)) return;
                   lastFinalText = String(text).trim();
-                  console.log('ASR final', lastFinalText);
                     if (finalizeTimer) clearTimeout(finalizeTimer);
                     if (currentSid === 0) currentSid = nextSid;
                     currentInterimText = lastFinalText;
@@ -938,11 +930,6 @@ function CaptionsTilesOverlay(props: { room: Room }) {
       // Ignore echoes of messages we just dispatched locally
       if (_p?.isLocal) return;
       const text = new TextDecoder().decode(payload);
-      // Debug: log incoming captions payloads (temporary)
-      try {
-        // eslint-disable-next-line no-console
-        console.debug('captions data', { topic, text });
-      } catch {}
       // Primary: JSON on 'captions'
       if (topic === 'captions') {
         try {
