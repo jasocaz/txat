@@ -1129,6 +1129,13 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   const [container, setContainer] = React.useState<Element | null>(null);
   const transcriptRef = React.useRef<HTMLDivElement | null>(null);
   const translationRef = React.useRef<HTMLDivElement | null>(null);
+  const [isDesktop, setIsDesktop] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const langs = React.useMemo(() => [
     ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
   ] as [string,string][], []);
@@ -1234,8 +1241,8 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         fontSize: 15,
         lineHeight: 1.4,
         textAlign: 'left',
-        minHeight: 110,
-        maxHeight: 250,
+        minHeight: isDesktop ? 150 : 110,
+        maxHeight: isDesktop ? 334 : 250,
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
@@ -1247,14 +1254,14 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
         </select>
       )}
-      {/* Transcript box (3 lines) */}
+      {/* Transcript box */}
       <div
         ref={transcriptRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 84,
+          maxHeight: isDesktop ? 126 : 84,
           borderBottom: '1px solid rgba(255,255,255,0.15)'
         }}
       >
@@ -1280,14 +1287,14 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         )}
       </div>
 
-      {/* Translation box (4 lines tall) */}
+      {/* Translation box */}
       <div
         ref={translationRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 84,
+          maxHeight: isDesktop ? 126 : 84,
         }}
       >
         {tblocks.length === 0 ? (
