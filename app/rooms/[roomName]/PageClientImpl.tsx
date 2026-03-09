@@ -78,6 +78,19 @@ export function PageClientImpl(props: {
     if (sttLang) {
       (window as any).__txat_stt_lang = sttLang;
     }
+    // Capture per-user model preferences
+    const translateModelSelect = document.getElementById('translate-model-prejoin') as HTMLSelectElement | null;
+    const translateModel = translateModelSelect?.value;
+    if (translateModel) {
+      (window as any).__txat_translate_model = translateModel;
+      try { localStorage.setItem('txat_translate_model', translateModel); } catch {}
+    }
+    const transcribeModelSelect = document.getElementById('transcribe-model-prejoin') as HTMLSelectElement | null;
+    const transcribeModel = transcribeModelSelect?.value;
+    if (transcribeModel) {
+      (window as any).__txat_transcribe_model = transcribeModel;
+      try { localStorage.setItem('txat_transcribe_model', transcribeModel); } catch {}
+    }
     if (props.region) {
       url.searchParams.append('region', props.region);
     }
@@ -123,6 +136,20 @@ export function PageClientImpl(props: {
                 <option value="ja">Japanese (ja)</option>
                 <option value="zh">Chinese (zh)</option>
                 <option value="en">English (en)</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label htmlFor="transcribe-model-prejoin">Transcription model</label>
+              <select id="transcribe-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_transcribe_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_transcribe_model') : null)) : null) ?? 'gpt-4o-mini-transcribe'} style={{ padding: '4px 8px' }}>
+                <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe (default)</option>
+                <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label htmlFor="translate-model-prejoin">Translation model</label>
+              <select id="translate-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_translate_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_translate_model') : null)) : null) ?? 'gpt-4o-mini'} style={{ padding: '4px 8px' }}>
+                <option value="gpt-4o-mini">gpt-4o-mini (default)</option>
+                <option value="gpt-4o">gpt-4o</option>
               </select>
             </div>
           </div>
@@ -336,56 +363,61 @@ function VideoConferenceComponent(props: {
                   .replace(/[.!?…]+$/g, '')
                   .trim()
                   .toLowerCase();
-                const commitFinalFromInterim = async () => {
+                const commitFinalFromInterim = () => {
                   if (currentSid === 0) return;
                   if (finalizedSid === currentSid) return;
                   const text = String(currentInterimText || '').trim();
                   if (!text) return;
                   finalizedSid = currentSid;
                   lastFinalText = text;
+                  const sid = currentSid;
+                  const speaker = room.localParticipant.identity;
                   const payload = {
                     type: 'transcription',
-                    speaker: room.localParticipant.identity,
+                    speaker,
                     text,
                     final: true,
-                    sentenceId: currentSid,
+                    sentenceId: sid,
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
                   try {
                     window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
                   } catch {}
-                  const target = (window as any).__txat_target_lang as string | undefined;
-                  if (target) {
-                    try {
-                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
-                      if (tr.ok) {
-                        const tj = await tr.json();
-                        const translatedText = String(tj?.translated || '').trim();
-                        if (translatedText) {
-                          const tmsg = {
-                            type: 'translation',
-                            speaker: room.localParticipant.identity,
-                            text,
-                            translatedText,
-                            sentenceId: currentSid,
-                            final: true,
-                            timestamp: new Date().toISOString(),
-                          };
-                          room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
-                          try {
-                            window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: tmsg }));
-                          } catch {}
-                        }
-                      }
-                    } catch {}
-                  }
-                  nextSid = currentSid + 1;
+                  nextSid = sid + 1;
                   currentSid = 0;
                   finalizedSid = null;
                   currentInterimText = '';
+                  const target = (window as any).__txat_target_lang as string | undefined;
+                  if (target) {
+                    (async () => {
+                      try {
+                        const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target, model: (window as any).__txat_translate_model || undefined }) });
+                        if (tr.ok) {
+                          const tj = await tr.json();
+                          const translatedText = String(tj?.translated || '').trim();
+                          if (translatedText) {
+                            const tmsg = {
+                              type: 'translation',
+                              speaker,
+                              text,
+                              translatedText,
+                              sentenceId: sid,
+                              final: true,
+                              timestamp: new Date().toISOString(),
+                            };
+                            room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                            try {
+                              window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: tmsg }));
+                            } catch {}
+                          }
+                        }
+                      } catch {}
+                    })();
+                  }
                 };
               const stop = startOpenAIRealtimeTranscriber(s, {
+                transcribeModel: (window as any).__txat_transcribe_model || undefined,
                 onDelta: (text) => {
                   // Drop punctuation-only deltas to avoid stray '.' or '?' lines
                   if (/^[\s.!?…]+$/.test(text)) return;
@@ -415,14 +447,13 @@ function VideoConferenceComponent(props: {
                       }
                     }
                   if (currentSid === 0) currentSid = nextSid;
-                    currentInterimText = cleaned;
+                    currentInterimText = currentInterimText ? (currentInterimText + ' ' + cleaned) : cleaned;
                     if (finalizeTimer) clearTimeout(finalizeTimer);
-                    // finalize if no new delta arrives shortly
-                    finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 600);
+                    finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 450);
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
-                    text: cleaned,
+                    text: currentInterimText,
                     final: false,
                     sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
@@ -600,6 +631,7 @@ function VideoConferenceComponent(props: {
         <CaptionsChatBridge room={room} />
         <ChatTranslator room={room} />
         <HideAgentTiles />
+        <VideoMirrorAll />
         <VideoConference
           chatMessageFormatter={(m) => translateChatFormatter(m) || chatFormatter(m)}
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
@@ -661,7 +693,7 @@ function ChatTranslator(props: { room: Room }) {
         const r = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: txt, target }),
+          body: JSON.stringify({ text: txt, target, model: (window as any).__txat_translate_model || undefined }),
         });
         if (!r.ok) return;
         const j = await r.json();
@@ -888,6 +920,12 @@ function HideAgentTiles() {
     };
   }, [participants]);
   return null;
+}
+
+function VideoMirrorAll() {
+  return (
+    <style>{`.lk-room-container video { transform: scaleX(-1) !important; }`}</style>
+  );
 }
 
 function CaptionsTilesOverlay(props: { room: Room }) {
@@ -1151,6 +1189,13 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   const [container, setContainer] = React.useState<Element | null>(null);
   const transcriptRef = React.useRef<HTMLDivElement | null>(null);
   const translationRef = React.useRef<HTMLDivElement | null>(null);
+  const [isDesktop, setIsDesktop] = React.useState(false);
+  React.useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
   const langs = React.useMemo(() => [
     ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
   ] as [string,string][], []);
@@ -1288,8 +1333,8 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         fontSize: 15,
         lineHeight: 1.4,
         textAlign: 'left',
-        minHeight: 110,
-        maxHeight: 250,
+        minHeight: isDesktop ? 150 : 110,
+        maxHeight: isDesktop ? 334 : 250,
         display: 'flex',
         flexDirection: 'column',
         gap: 6,
@@ -1301,14 +1346,14 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
         </select>
       )}
-      {/* Transcript box (3 lines) */}
+      {/* Transcript box */}
       <div
         ref={transcriptRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 84,
+          maxHeight: isDesktop ? 126 : 84,
           borderBottom: '1px solid rgba(255,255,255,0.15)'
         }}
       >
@@ -1334,14 +1379,14 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         )}
       </div>
 
-      {/* Translation box (4 lines tall) */}
+      {/* Translation box */}
       <div
         ref={translationRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: 84,
+          maxHeight: isDesktop ? 126 : 84,
         }}
       >
         {tblocks.length === 0 ? (

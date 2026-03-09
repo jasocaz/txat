@@ -19,6 +19,7 @@ type BackgroundType = 'none' | 'blur' | 'image';
 
 export function CameraSettings() {
   const { cameraTrack, localParticipant } = useLocalParticipant();
+
   const [backgroundType, setBackgroundType] = React.useState<BackgroundType>(
     (cameraTrack as LocalTrackPublication)?.track?.getProcessor()?.name === 'background-blur'
       ? 'blur'
