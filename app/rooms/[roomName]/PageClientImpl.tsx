@@ -447,14 +447,13 @@ function VideoConferenceComponent(props: {
                       }
                     }
                   if (currentSid === 0) currentSid = nextSid;
-                    currentInterimText = cleaned;
+                    currentInterimText = currentInterimText ? (currentInterimText + ' ' + cleaned) : cleaned;
                     if (finalizeTimer) clearTimeout(finalizeTimer);
-                    // finalize if no new delta arrives shortly
                     finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 600);
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
-                    text: cleaned,
+                    text: currentInterimText,
                     final: false,
                     sentenceId: currentSid,
                     timestamp: new Date().toISOString(),
