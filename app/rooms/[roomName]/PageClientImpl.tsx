@@ -951,7 +951,7 @@ function VideoMirrorAll() {
   // #endregion
 
   return (
-    <style>{`.lk-participant-tile video { transform: ${mirror ? 'scaleX(-1)' : 'none'} !important; }`}</style>
+    <style>{`.lk-room-container video { transform: ${mirror ? 'scaleX(-1)' : 'none'} !important; }`}</style>
   );
 }
 

@@ -86,7 +86,7 @@ export function CameraSettings() {
             maxHeight: '280px',
             objectFit: 'contain',
             objectPosition: 'right',
-            transform: 'scaleX(-1)',
+            transform: mirrorVideo ? 'scaleX(-1)' : 'none',
           }}
           trackRef={camTrackRef}
         />
