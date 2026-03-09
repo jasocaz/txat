@@ -1,7 +1,8 @@
 /*
-  Minimal OpenAI Realtime transcriber starter used by txat.
-  - Opens a Realtime session using /api/realtime-session to get client_secret
+  Minimal OpenAI Realtime transcriber used by txat.
   - Streams the provided MediaStream (mic) to OpenAI via WebRTC
+  - Uses the GA unified interface: single SDP exchange via /api/realtime-session
+  - VAD and transcription are configured server-side in the session config
   - Emits transcription delta and completed events via callbacks
   - Returns a stop() function to tear down the peer connection
 */
@@ -13,10 +14,6 @@ export type TranscriberCallbacks = {
   onStarted?: () => void;
   onStatusChange?: (status: 'live' | 'reconnecting' | 'paused') => void;
 };
-
-const VAD_THRESHOLD = Number(process.env.NEXT_PUBLIC_VAD_THRESHOLD ?? '0.5');
-const VAD_SILENCE_MS = Number(process.env.NEXT_PUBLIC_VAD_SILENCE_MS ?? '450');
-const VAD_PREFIX_MS = Number(process.env.NEXT_PUBLIC_VAD_PREFIX_MS ?? '200');
 
 export function startOpenAIRealtimeTranscriber(
   stream: MediaStream,
@@ -30,40 +27,18 @@ export function startOpenAIRealtimeTranscriber(
   // Add mic track
   const track = stream.getAudioTracks()[0];
   try {
-    // Reduce capture-side latency by disabling heavy processing
     track.applyConstraints?.({ echoCancellation: false as any, noiseSuppression: false as any, autoGainControl: false as any });
-    // Hint to encoder/stack that this is speech
     (track as any).contentHint = 'speech';
   } catch {}
   if (track) pc.addTrack(track, stream);
 
-  // Data channel for control + events
   const setStatus = (s: 'live' | 'reconnecting' | 'paused') => {
     try { onStatusChange?.(s); } catch {}
   };
 
-  dc = pc.createDataChannel('signaling');
+  dc = pc.createDataChannel('oai-events');
   dc.onopen = () => {
-    try {
-      // The session was already configured with input_audio_transcription during creation
-      // We just need to update turn_detection settings
-      const sessionConfig = {
-        type: 'session.update',
-        session: {
-          turn_detection: {
-            type: 'server_vad',
-            threshold: VAD_THRESHOLD,
-            prefix_padding_ms: VAD_PREFIX_MS,
-            silence_duration_ms: VAD_SILENCE_MS,
-            create_response: false,
-          },
-        },
-      };
-      dc?.send(JSON.stringify(sessionConfig));
-      onStarted?.();
-    } catch (e: any) {
-      onError?.(String(e?.message || e));
-    }
+    onStarted?.();
   };
 
   dc.onerror = (err) => {
@@ -73,8 +48,7 @@ export function startOpenAIRealtimeTranscriber(
   dc.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
-      
-      // Handle transcription events
+
       if (msg?.type === 'conversation.item.input_audio_transcription.delta') {
         const t = String(msg?.delta ?? '').replace(/\s+/g, ' ').trim();
         if (t) {
@@ -89,8 +63,7 @@ export function startOpenAIRealtimeTranscriber(
         }
         return;
       }
-      
-      // Handle errors
+
       if (msg?.type === 'error') {
         onError?.(String(msg?.error?.message || 'Unknown error'));
       }
@@ -99,7 +72,6 @@ export function startOpenAIRealtimeTranscriber(
     }
   };
 
-  // Map connection states to status
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
     if (s === 'connected') setStatus('live');
@@ -111,21 +83,20 @@ export function startOpenAIRealtimeTranscriber(
     if (s === 'failed' || s === 'disconnected') setStatus('reconnecting');
   };
 
-  // Start SDP exchange
+  // Single-step SDP exchange via the GA unified interface
   (async () => {
     try {
       setStatus('reconnecting');
-      const tokenResp = await fetch('/api/realtime-session', { method: 'POST' });
-      if (!tokenResp.ok) throw new Error(await tokenResp.text());
-      const { client_secret } = await tokenResp.json();
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      const answerResp = await fetch(`/api/realtime-session?client_secret=${encodeURIComponent(client_secret)}`, {
+
+      const answerResp = await fetch('/api/realtime-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
         body: offer.sdp || '',
       });
       if (!answerResp.ok) throw new Error(await answerResp.text());
+
       const answerSdp = await answerResp.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
     } catch (e: any) {
@@ -145,5 +116,3 @@ export function startOpenAIRealtimeTranscriber(
     setStatus('paused');
   };
 }
-
-
