@@ -946,7 +946,35 @@ function VideoMirrorAll() {
 
   // #region agent log
   React.useEffect(() => {
-    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:render',message:'render with mirror state',data:{mirror,styleTagCount:typeof document!=='undefined'?document.querySelectorAll('style').length:null},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+    setTimeout(() => {
+      try {
+        const container = document.querySelector('.lk-room-container');
+        const videos = container ? Array.from(container.querySelectorAll('video')) : [];
+        const canvases = container ? Array.from(container.querySelectorAll('canvas')) : [];
+        const videoInfo = videos.map((v, i) => {
+          const computed = getComputedStyle(v);
+          const tile = v.closest('.lk-participant-tile');
+          const tileName = tile?.querySelector('.lk-participant-name')?.textContent || null;
+          return {
+            idx: i,
+            tagName: v.tagName,
+            inlineTransform: v.style.transform,
+            computedTransform: computed.transform,
+            parentClasses: v.parentElement?.className || '',
+            tileClass: tile?.className || 'NO_TILE',
+            tileName,
+            srcObject: !!v.srcObject,
+            videoWidth: v.videoWidth,
+          };
+        });
+        const canvasInfo = canvases.map((c, i) => ({
+          idx: i,
+          parentClasses: c.parentElement?.className || '',
+          tile: c.closest('.lk-participant-tile')?.querySelector('.lk-participant-name')?.textContent || null,
+        }));
+        fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:domInspect',message:'DOM video elements',data:{mirror,videoCount:videos.length,canvasCount:canvases.length,videos:videoInfo,canvases:canvasInfo},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+      } catch {}
+    }, 500);
   }, [mirror]);
   // #endregion
 
