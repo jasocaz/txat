@@ -628,6 +628,7 @@ function VideoConferenceComponent(props: {
         <CaptionsChatBridge room={room} />
         <ChatTranslator room={room} />
         <HideAgentTiles />
+        <VideoMirrorAll />
         <VideoConference
           chatMessageFormatter={(m) => translateChatFormatter(m) || chatFormatter(m)}
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
@@ -916,6 +917,32 @@ function HideAgentTiles() {
     };
   }, [participants]);
   return null;
+}
+
+function VideoMirrorAll() {
+  const [mirror, setMirror] = React.useState(() => {
+    try {
+      const stored = localStorage.getItem('txat_mirror_video');
+      return stored !== null ? stored === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  React.useEffect(() => {
+    const handler = (e: any) => {
+      const val = e?.detail;
+      if (typeof val === 'boolean') setMirror(val);
+    };
+    window.addEventListener('txat_mirror_video', handler);
+    return () => window.removeEventListener('txat_mirror_video', handler);
+  }, []);
+
+  if (!mirror) return null;
+
+  return (
+    <style>{`.lk-participant-tile video { transform: scaleX(-1) !important; }`}</style>
+  );
 }
 
 function CaptionsTilesOverlay(props: { room: Room }) {
