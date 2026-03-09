@@ -930,13 +930,25 @@ function VideoMirrorAll() {
   });
 
   React.useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:useEffect',message:'listener attached',data:{currentMirror:mirror},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     const handler = (e: any) => {
       const val = e?.detail;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:handler',message:'event received',data:{detail:val,typeofDetail:typeof val},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       if (typeof val === 'boolean') setMirror(val);
     };
     window.addEventListener('txat_mirror_video', handler);
     return () => window.removeEventListener('txat_mirror_video', handler);
   }, []);
+
+  // #region agent log
+  React.useEffect(() => {
+    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:render',message:'render with mirror state',data:{mirror,styleTagCount:typeof document!=='undefined'?document.querySelectorAll('style').length:null},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+  }, [mirror]);
+  // #endregion
 
   if (!mirror) return null;
 

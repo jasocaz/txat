@@ -34,6 +34,9 @@ export function CameraSettings() {
     setMirrorVideo(next);
     try { localStorage.setItem('txat_mirror_video', String(next)); } catch {}
     window.dispatchEvent(new CustomEvent('txat_mirror_video', { detail: next }));
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'CameraSettings.tsx:toggleMirror',message:'toggleMirror called',data:{prev:mirrorVideo,next,lsValue:localStorage.getItem('txat_mirror_video')},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
   };
 
   const [backgroundType, setBackgroundType] = React.useState<BackgroundType>(
