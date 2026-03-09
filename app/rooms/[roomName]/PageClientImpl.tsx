@@ -78,6 +78,19 @@ export function PageClientImpl(props: {
     if (sttLang) {
       (window as any).__txat_stt_lang = sttLang;
     }
+    // Capture per-user model preferences
+    const translateModelSelect = document.getElementById('translate-model-prejoin') as HTMLSelectElement | null;
+    const translateModel = translateModelSelect?.value;
+    if (translateModel) {
+      (window as any).__txat_translate_model = translateModel;
+      try { localStorage.setItem('txat_translate_model', translateModel); } catch {}
+    }
+    const transcribeModelSelect = document.getElementById('transcribe-model-prejoin') as HTMLSelectElement | null;
+    const transcribeModel = transcribeModelSelect?.value;
+    if (transcribeModel) {
+      (window as any).__txat_transcribe_model = transcribeModel;
+      try { localStorage.setItem('txat_transcribe_model', transcribeModel); } catch {}
+    }
     if (props.region) {
       url.searchParams.append('region', props.region);
     }
@@ -123,6 +136,20 @@ export function PageClientImpl(props: {
                 <option value="ja">Japanese (ja)</option>
                 <option value="zh">Chinese (zh)</option>
                 <option value="en">English (en)</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label htmlFor="translate-model-prejoin">Translation model</label>
+              <select id="translate-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_translate_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_translate_model') : null)) : null) ?? 'gpt-4o-mini'} style={{ padding: '4px 8px' }}>
+                <option value="gpt-4o-mini">gpt-4o-mini (default)</option>
+                <option value="gpt-4o">gpt-4o</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label htmlFor="transcribe-model-prejoin">Transcription model</label>
+              <select id="transcribe-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_transcribe_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_transcribe_model') : null)) : null) ?? 'gpt-4o-mini-transcribe'} style={{ padding: '4px 8px' }}>
+                <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe (default)</option>
+                <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
               </select>
             </div>
           </div>
@@ -358,7 +385,7 @@ function VideoConferenceComponent(props: {
                   const target = (window as any).__txat_target_lang as string | undefined;
                   if (target) {
                     try {
-                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target }) });
+                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target, model: (window as any).__txat_translate_model || undefined }) });
                       if (tr.ok) {
                         const tj = await tr.json();
                         const translatedText = String(tj?.translated || '').trim();
@@ -386,6 +413,7 @@ function VideoConferenceComponent(props: {
                   currentInterimText = '';
                 };
               const stop = startOpenAIRealtimeTranscriber(s, {
+                transcribeModel: (window as any).__txat_transcribe_model || undefined,
                 onDelta: (text) => {
                   // Drop punctuation-only deltas to avoid stray '.' or '?' lines
                   if (/^[\s.!?…]+$/.test(text)) return;
@@ -661,7 +689,7 @@ function ChatTranslator(props: { room: Room }) {
         const r = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: txt, target }),
+          body: JSON.stringify({ text: txt, target, model: (window as any).__txat_translate_model || undefined }),
         });
         if (!r.ok) return;
         const j = await r.json();

@@ -13,13 +13,14 @@ export type TranscriberCallbacks = {
   onError?: (message: string) => void;
   onStarted?: () => void;
   onStatusChange?: (status: 'live' | 'reconnecting' | 'paused') => void;
+  transcribeModel?: string;
 };
 
 export function startOpenAIRealtimeTranscriber(
   stream: MediaStream,
   callbacks: TranscriberCallbacks = {}
 ): () => void {
-  const { onDelta, onCompleted, onError, onStarted, onStatusChange } = callbacks;
+  const { onDelta, onCompleted, onError, onStarted, onStatusChange, transcribeModel } = callbacks;
 
   const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
   let dc: RTCDataChannel | null = null;
@@ -90,7 +91,10 @@ export function startOpenAIRealtimeTranscriber(
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const answerResp = await fetch('/api/realtime-session', {
+      const sessionUrl = transcribeModel
+        ? `/api/realtime-session?transcribeModel=${encodeURIComponent(transcribeModel)}`
+        : '/api/realtime-session';
+      const answerResp = await fetch(sessionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
         body: offer.sdp || '',

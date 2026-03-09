@@ -2,14 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+const ALLOWED_TRANSLATE_MODELS = ['gpt-4o-mini', 'gpt-4o'];
+const DEFAULT_TRANSLATE_MODEL = process.env.OPENAI_TRANSLATE_MODEL || 'gpt-4o-mini';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, target } = body || {};
+    const { text, target, model: requestedModel } = body || {};
     if (!text || !target) {
       return new NextResponse('Missing text or target', { status: 400 });
     }
-    const model = process.env.OPENAI_TRANSLATE_MODEL || 'gpt-4o-mini';
+    const model =
+      requestedModel && ALLOWED_TRANSLATE_MODELS.includes(requestedModel)
+        ? requestedModel
+        : DEFAULT_TRANSLATE_MODEL;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return new NextResponse('Missing OPENAI_API_KEY', { status: 500 });
 
