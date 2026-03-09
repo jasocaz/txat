@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-mini';
+console.log('[realtime-session] Using model:', REALTIME_MODEL);
 
 async function mintSession() {
   if (!process.env.OPENAI_API_KEY) {
@@ -32,6 +33,7 @@ async function mintSession() {
     return NextResponse.json({
       client_secret: data?.client_secret?.value,
       expires_at: data?.client_secret?.expires_at,
+      model: data?.model || REALTIME_MODEL,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Realtime session error' }, { status: 500 });

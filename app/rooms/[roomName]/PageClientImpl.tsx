@@ -904,6 +904,36 @@ function CaptionsTilesOverlay(props: { room: Room }) {
   const participants = useParticipants();
   const nextIdRef = React.useRef(1);
 
+  // #region agent log
+  React.useEffect(() => {
+    const ids = Object.keys(byIdentity);
+    const pIds = participants.map(p => ({ identity: p.identity, name: p.name, isLocal: p.isLocal }));
+    fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:CaptionsTilesOverlay',message:'byIdentity keys vs participants',data:{byIdentityKeys:ids,participants:pIds,byIdentityCount:ids.length,participantCount:pIds.length},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    console.log('[TXAT_DEBUG] byIdentity keys:', ids, 'participants:', pIds);
+  }, [byIdentity, participants]);
+  // #endregion
+
+  // Clean up byIdentity entries for participants that have disconnected
+  // This prevents stale CaptionPortal instances from finding and attaching to
+  // a rejoined participant's tile via the name-based fallback
+  React.useEffect(() => {
+    const currentIdentities = new Set(participants.map((p) => p.identity));
+    setByIdentity((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const key of Object.keys(next)) {
+        if (!currentIdentities.has(key)) {
+          // #region agent log
+          console.log('[TXAT_DEBUG] Cleaning up stale byIdentity entry:', key, 'current participants:', Array.from(currentIdentities));
+          // #endregion
+          delete next[key];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [participants]);
+
   const resolveIdentity = React.useCallback(
     (speaker: string | undefined): string | undefined => {
       if (!speaker) return undefined;
@@ -914,11 +944,31 @@ function CaptionsTilesOverlay(props: { room: Room }) {
       if (starts) return starts.identity;
       const byName = participants.find((p) => p.name?.toLowerCase() === base);
       if (byName?.identity) return byName.identity;
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:resolveIdentity',message:'Identity resolution fallback to raw speaker',data:{speaker,base,participantIdentities:participants.map(p=>p.identity)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       // Do NOT fallback to local identity; keep the original speaker identity so we can attach later
       return speaker;
     },
     [participants],
   );
+
+  // #region agent log
+  React.useEffect(() => {
+    const onConnect = (p: any) => {
+      fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:CaptionsTilesOverlay',message:'Participant connected',data:{identity:p?.identity,name:p?.name},timestamp:Date.now(),hypothesisId:'A,D'})}).catch(()=>{});
+    };
+    const onDisconnect = (p: any) => {
+      fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:CaptionsTilesOverlay',message:'Participant disconnected',data:{identity:p?.identity,name:p?.name,byIdentityKeysAtDisconnect:Object.keys(byIdentity)},timestamp:Date.now(),hypothesisId:'A,D'})}).catch(()=>{});
+    };
+    room.on(RoomEvent.ParticipantConnected as any, onConnect);
+    room.on(RoomEvent.ParticipantDisconnected as any, onDisconnect);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected as any, onConnect);
+      room.off(RoomEvent.ParticipantDisconnected as any, onDisconnect);
+    };
+  }, [room, byIdentity]);
+  // #endregion
 
   React.useEffect(() => {
     const onData = (
@@ -1114,6 +1164,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
       let tile: Element | null = document.querySelector(
         `.lk-participant-tile[data-lk-identity="${escId}"]`,
       );
+      let matchMethod = tile ? 'data-lk-identity' : 'none';
 
       // 2) Fallback: find by participant-name span when tile lacks identity attrs
       if (!tile) {
@@ -1131,7 +1182,18 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
               (el) => el.textContent?.trim().toLowerCase() === displayName.toLowerCase(),
             ) || null;
           if (nameEl) {
-            tile = (nameEl as HTMLElement).closest('.lk-participant-tile');
+            const candidate = (nameEl as HTMLElement).closest('.lk-participant-tile');
+            // Guard: if the tile has a data-lk-identity that differs from ours, do NOT claim it.
+            // This prevents a stale portal from hijacking a rejoined participant's tile.
+            const tileId = candidate?.getAttribute('data-lk-identity');
+            if (!tileId || tileId === identity) {
+              tile = candidate;
+              matchMethod = 'name-fallback';
+            } else {
+              // #region agent log
+              console.log('[TXAT_DEBUG] CaptionPortal name-fallback blocked: portal identity=', identity, 'tile identity=', tileId);
+              // #endregion
+            }
           }
         }
       }
@@ -1142,16 +1204,28 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
           h.style.position = 'relative';
           h.style.overflow = 'visible';
         }
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:CaptionPortal:tryFind',message:'Portal found tile',data:{portalIdentity:identity,matchMethod,tileIdentityAttr:h.getAttribute('data-lk-identity'),tileInDOM:document.body.contains(h),containerChildCount:h.querySelectorAll('[style*="position: absolute"]').length},timestamp:Date.now(),hypothesisId:'B,C,E'})}).catch(()=>{});
+        // #endregion
         setContainer(h);
       } else {
         // If not found yet, keep waiting for future mutations without falling back to local tile
       }
     };
     tryFind();
-    const obs = new MutationObserver(tryFind);
+    const obs = new MutationObserver(() => {
+      // If our current container was removed from the DOM, reset it
+      if (container && !document.body.contains(container)) {
+        // #region agent log
+        console.log('[TXAT_DEBUG] CaptionPortal container removed from DOM, resetting:', identity);
+        // #endregion
+        setContainer(null);
+      }
+      tryFind();
+    });
     obs.observe(document.body, { childList: true, subtree: true });
     return () => obs.disconnect();
-  }, [identity, participants]);
+  }, [identity, participants, container]);
 
   React.useEffect(() => {
     if (transcriptRef.current) {
@@ -1189,6 +1263,14 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     setTargetLang(val);
     try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
   };
+  // #region agent log
+  React.useEffect(() => {
+    if (container) {
+      const overlayCount = container.querySelectorAll('div[style*="position: absolute"]').length;
+      fetch('http://127.0.0.1:7244/ingest/55b121a4-30ff-49ca-b4b9-12d0357b1c97',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PageClientImpl.tsx:CaptionPortal:render',message:'Portal rendering into container',data:{portalIdentity:identity,containerIdentityAttr:container.getAttribute('data-lk-identity'),containerInDOM:document.body.contains(container),overlayChildrenInContainer:overlayCount,blockCount:blocks.length,tblockCount:tblocks.length},timestamp:Date.now(),hypothesisId:'B,E'})}).catch(()=>{});
+    }
+  }, [container, blocks, tblocks, identity]);
+  // #endregion
   if (!container) return null;
   return createPortal(
     <div
