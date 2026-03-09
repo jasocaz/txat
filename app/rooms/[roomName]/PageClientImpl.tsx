@@ -950,10 +950,8 @@ function VideoMirrorAll() {
   }, [mirror]);
   // #endregion
 
-  if (!mirror) return null;
-
   return (
-    <style>{`.lk-participant-tile video { transform: scaleX(-1) !important; }`}</style>
+    <style>{`.lk-participant-tile video { transform: ${mirror ? 'scaleX(-1)' : 'none'} !important; }`}</style>
   );
 }
 
