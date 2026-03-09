@@ -363,54 +363,58 @@ function VideoConferenceComponent(props: {
                   .replace(/[.!?…]+$/g, '')
                   .trim()
                   .toLowerCase();
-                const commitFinalFromInterim = async () => {
+                const commitFinalFromInterim = () => {
                   if (currentSid === 0) return;
                   if (finalizedSid === currentSid) return;
                   const text = String(currentInterimText || '').trim();
                   if (!text) return;
                   finalizedSid = currentSid;
                   lastFinalText = text;
+                  const sid = currentSid;
+                  const speaker = room.localParticipant.identity;
                   const payload = {
                     type: 'transcription',
-                    speaker: room.localParticipant.identity,
+                    speaker,
                     text,
                     final: true,
-                    sentenceId: currentSid,
+                    sentenceId: sid,
                     timestamp: new Date().toISOString(),
                   } as const;
                   room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(payload)), { reliable: true, topic: 'captions' as any }).catch(() => {});
                   try {
                     window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: payload }));
                   } catch {}
-                  const target = (window as any).__txat_target_lang as string | undefined;
-                  if (target) {
-                    try {
-                      const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target, model: (window as any).__txat_translate_model || undefined }) });
-                      if (tr.ok) {
-                        const tj = await tr.json();
-                        const translatedText = String(tj?.translated || '').trim();
-                        if (translatedText) {
-                          const tmsg = {
-                            type: 'translation',
-                            speaker: room.localParticipant.identity,
-                            text,
-                            translatedText,
-                            sentenceId: currentSid,
-                            final: true,
-                            timestamp: new Date().toISOString(),
-                          };
-                          room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
-                          try {
-                            window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: tmsg }));
-                          } catch {}
-                        }
-                      }
-                    } catch {}
-                  }
-                  nextSid = currentSid + 1;
+                  nextSid = sid + 1;
                   currentSid = 0;
                   finalizedSid = null;
                   currentInterimText = '';
+                  const target = (window as any).__txat_target_lang as string | undefined;
+                  if (target) {
+                    (async () => {
+                      try {
+                        const tr = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, target, model: (window as any).__txat_translate_model || undefined }) });
+                        if (tr.ok) {
+                          const tj = await tr.json();
+                          const translatedText = String(tj?.translated || '').trim();
+                          if (translatedText) {
+                            const tmsg = {
+                              type: 'translation',
+                              speaker,
+                              text,
+                              translatedText,
+                              sentenceId: sid,
+                              final: true,
+                              timestamp: new Date().toISOString(),
+                            };
+                            room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify(tmsg)), { reliable: true, topic: 'captions' as any }).catch(() => {});
+                            try {
+                              window.dispatchEvent(new CustomEvent('txat_captions_local', { detail: tmsg }));
+                            } catch {}
+                          }
+                        }
+                      } catch {}
+                    })();
+                  }
                 };
               const stop = startOpenAIRealtimeTranscriber(s, {
                 transcribeModel: (window as any).__txat_transcribe_model || undefined,
