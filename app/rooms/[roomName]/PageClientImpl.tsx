@@ -931,52 +931,30 @@ function VideoMirrorAll() {
 
   React.useEffect(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:useEffect',message:'listener attached',data:{currentMirror:mirror},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:useEffect',message:'listeners attached',data:{currentMirror:mirror},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
     // #endregion
     const handler = (e: any) => {
       const val = e?.detail;
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:handler',message:'event received',data:{detail:val,typeofDetail:typeof val},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       if (typeof val === 'boolean') setMirror(val);
     };
     window.addEventListener('txat_mirror_video', handler);
-    return () => window.removeEventListener('txat_mirror_video', handler);
-  }, []);
 
-  // #region agent log
-  React.useEffect(() => {
-    setTimeout(() => {
-      try {
-        const container = document.querySelector('.lk-room-container');
-        const videos = container ? Array.from(container.querySelectorAll('video')) : [];
-        const canvases = container ? Array.from(container.querySelectorAll('canvas')) : [];
-        const videoInfo = videos.map((v, i) => {
-          const computed = getComputedStyle(v);
-          const tile = v.closest('.lk-participant-tile');
-          const tileName = tile?.querySelector('.lk-participant-name')?.textContent || null;
-          return {
-            idx: i,
-            tagName: v.tagName,
-            inlineTransform: v.style.transform,
-            computedTransform: computed.transform,
-            parentClasses: v.parentElement?.className || '',
-            tileClass: tile?.className || 'NO_TILE',
-            tileName,
-            srcObject: !!v.srcObject,
-            videoWidth: v.videoWidth,
-          };
-        });
-        const canvasInfo = canvases.map((c, i) => ({
-          idx: i,
-          parentClasses: c.parentElement?.className || '',
-          tile: c.closest('.lk-participant-tile')?.querySelector('.lk-participant-name')?.textContent || null,
-        }));
-        fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:domInspect',message:'DOM video elements',data:{mirror,videoCount:videos.length,canvasCount:canvases.length,videos:videoInfo,canvases:canvasInfo},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-      } catch {}
-    }, 500);
-  }, [mirror]);
-  // #endregion
+    const storageHandler = (e: StorageEvent) => {
+      if (e.key === 'txat_mirror_video' && e.newValue !== null) {
+        const val = e.newValue === 'true';
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:storageSync',message:'storage event synced from other tab',data:{newValue:val},timestamp:Date.now(),hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        setMirror(val);
+      }
+    };
+    window.addEventListener('storage', storageHandler);
+
+    return () => {
+      window.removeEventListener('txat_mirror_video', handler);
+      window.removeEventListener('storage', storageHandler);
+    };
+  }, []);
 
   return (
     <style>{`.lk-room-container video { transform: ${mirror ? 'scaleX(-1)' : 'none'} !important; }`}</style>
