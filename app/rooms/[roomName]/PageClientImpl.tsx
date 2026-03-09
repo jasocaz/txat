@@ -920,44 +920,8 @@ function HideAgentTiles() {
 }
 
 function VideoMirrorAll() {
-  const [mirror, setMirror] = React.useState(() => {
-    try {
-      const stored = localStorage.getItem('txat_mirror_video');
-      return stored !== null ? stored === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  React.useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:useEffect',message:'listeners attached',data:{currentMirror:mirror},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    const handler = (e: any) => {
-      const val = e?.detail;
-      if (typeof val === 'boolean') setMirror(val);
-    };
-    window.addEventListener('txat_mirror_video', handler);
-
-    const storageHandler = (e: StorageEvent) => {
-      if (e.key === 'txat_mirror_video' && e.newValue !== null) {
-        const val = e.newValue === 'true';
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'PageClientImpl.tsx:VideoMirrorAll:storageSync',message:'storage event synced from other tab',data:{newValue:val},timestamp:Date.now(),hypothesisId:'F'})}).catch(()=>{});
-        // #endregion
-        setMirror(val);
-      }
-    };
-    window.addEventListener('storage', storageHandler);
-
-    return () => {
-      window.removeEventListener('txat_mirror_video', handler);
-      window.removeEventListener('storage', storageHandler);
-    };
-  }, []);
-
   return (
-    <style>{`.lk-room-container video { transform: ${mirror ? 'scaleX(-1)' : 'none'} !important; }`}</style>
+    <style>{`.lk-room-container video { transform: scaleX(-1) !important; }`}</style>
   );
 }
 

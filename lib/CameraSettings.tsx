@@ -20,25 +20,6 @@ type BackgroundType = 'none' | 'blur' | 'image';
 export function CameraSettings() {
   const { cameraTrack, localParticipant } = useLocalParticipant();
 
-  const [mirrorVideo, setMirrorVideo] = React.useState(() => {
-    try {
-      const stored = localStorage.getItem('txat_mirror_video');
-      return stored !== null ? stored === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const toggleMirror = () => {
-    const next = !mirrorVideo;
-    setMirrorVideo(next);
-    try { localStorage.setItem('txat_mirror_video', String(next)); } catch {}
-    window.dispatchEvent(new CustomEvent('txat_mirror_video', { detail: next }));
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/4f6c001c-c80e-4127-b26c-2172368c1a16',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8401b4'},body:JSON.stringify({sessionId:'8401b4',location:'CameraSettings.tsx:toggleMirror',message:'toggleMirror called',data:{prev:mirrorVideo,next,lsValue:localStorage.getItem('txat_mirror_video')},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-  };
-
   const [backgroundType, setBackgroundType] = React.useState<BackgroundType>(
     (cameraTrack as LocalTrackPublication)?.track?.getProcessor()?.name === 'background-blur'
       ? 'blur'
@@ -86,7 +67,7 @@ export function CameraSettings() {
             maxHeight: '280px',
             objectFit: 'contain',
             objectPosition: 'right',
-            transform: mirrorVideo ? 'scaleX(-1)' : 'none',
+            transform: 'scaleX(-1)',
           }}
           trackRef={camTrackRef}
         />
@@ -97,44 +78,6 @@ export function CameraSettings() {
         <div className="lk-button-group-menu">
           <MediaDeviceMenu kind="videoinput" />
         </div>
-      </section>
-
-      <section style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-        <label
-          htmlFor="mirror-video-toggle"
-          style={{ cursor: 'pointer', userSelect: 'none', fontSize: 14 }}
-        >
-          Mirror video
-        </label>
-        <button
-          id="mirror-video-toggle"
-          role="switch"
-          aria-checked={mirrorVideo}
-          onClick={toggleMirror}
-          style={{
-            width: 42,
-            height: 24,
-            borderRadius: 12,
-            border: 'none',
-            cursor: 'pointer',
-            position: 'relative',
-            background: mirrorVideo ? '#0090ff' : '#555',
-            transition: 'background 0.2s',
-          }}
-        >
-          <span
-            style={{
-              position: 'absolute',
-              top: 3,
-              left: mirrorVideo ? 21 : 3,
-              width: 18,
-              height: 18,
-              borderRadius: '50%',
-              background: '#fff',
-              transition: 'left 0.2s',
-            }}
-          />
-        </button>
       </section>
 
       <div style={{ marginTop: '10px' }}>
