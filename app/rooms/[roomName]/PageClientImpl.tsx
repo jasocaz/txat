@@ -139,17 +139,17 @@ export function PageClientImpl(props: {
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label htmlFor="translate-model-prejoin">Translation model</label>
-              <select id="translate-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_translate_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_translate_model') : null)) : null) ?? 'gpt-4o-mini'} style={{ padding: '4px 8px' }}>
-                <option value="gpt-4o-mini">gpt-4o-mini (default)</option>
-                <option value="gpt-4o">gpt-4o</option>
-              </select>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <label htmlFor="transcribe-model-prejoin">Transcription model</label>
               <select id="transcribe-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_transcribe_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_transcribe_model') : null)) : null) ?? 'gpt-4o-mini-transcribe'} style={{ padding: '4px 8px' }}>
                 <option value="gpt-4o-mini-transcribe">gpt-4o-mini-transcribe (default)</option>
                 <option value="gpt-4o-transcribe">gpt-4o-transcribe</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label htmlFor="translate-model-prejoin">Translation model</label>
+              <select id="translate-model-prejoin" defaultValue={(typeof window !== 'undefined' ? ((window as any).__txat_translate_model || (typeof localStorage !== 'undefined' ? localStorage.getItem('txat_translate_model') : null)) : null) ?? 'gpt-4o-mini'} style={{ padding: '4px 8px' }}>
+                <option value="gpt-4o-mini">gpt-4o-mini (default)</option>
+                <option value="gpt-4o">gpt-4o</option>
               </select>
             </div>
           </div>
