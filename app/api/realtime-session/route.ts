@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+const REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-mini';
+
 async function mintSession() {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
@@ -14,7 +16,7 @@ async function mintSession() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini-realtime-preview-2024-12-17',
+        model: REALTIME_MODEL,
         voice: 'alloy',
         input_audio_format: 'pcm16',
         input_audio_transcription: {
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     const clientSecret = req.headers.get('x-openai-client-secret') || req.nextUrl.searchParams.get('client_secret');
     if (!clientSecret) return new NextResponse('Missing client_secret', { status: 400 });
     try {
-      const resp = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17', {
+      const resp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(REALTIME_MODEL)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/sdp',
