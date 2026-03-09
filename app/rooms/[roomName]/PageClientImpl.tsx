@@ -449,7 +449,7 @@ function VideoConferenceComponent(props: {
                   if (currentSid === 0) currentSid = nextSid;
                     currentInterimText = currentInterimText ? (currentInterimText + ' ' + cleaned) : cleaned;
                     if (finalizeTimer) clearTimeout(finalizeTimer);
-                    finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 600);
+                    finalizeTimer = setTimeout(() => { commitFinalFromInterim(); }, 450);
                   const payload = {
                     type: 'transcription',
                     speaker: room.localParticipant.identity,
