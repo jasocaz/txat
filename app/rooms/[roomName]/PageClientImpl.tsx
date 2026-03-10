@@ -944,9 +944,6 @@ function VideoMirrorAll() {
     <style>{`
       .lk-room-container video { transform: scaleX(-1) !important; }
       .lk-control-bar {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        flex-wrap: nowrap !important;
         position: relative !important;
         z-index: 100 !important;
       }
