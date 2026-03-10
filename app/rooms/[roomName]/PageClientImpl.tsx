@@ -637,7 +637,6 @@ function VideoConferenceComponent(props: {
           SettingsComponent={SHOW_SETTINGS_MENU ? SettingsMenu : undefined}
         />
         <CopyLinkButtonInControlBar />
-        <TranscribingPillInControlBar />
         <LanguageDropdownInControlBar />
         <CaptionsTilesOverlay room={room} />
         <DebugMode />
@@ -729,82 +728,9 @@ function isAgentParticipant(p: any): boolean {
   );
 }
 
-function TranscribingPillInControlBar() {
-  const [container, setContainer] = React.useState<Element | null>(null);
-  const [status, setStatus] = React.useState<'live'|'reconnecting'|'paused'>('paused');
-  React.useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const el = document.querySelector('.lk-control-bar');
-    if (el) {
-      setContainer(el);
-      return;
-    }
-    const obs = new MutationObserver(() => {
-      const found = document.querySelector('.lk-control-bar');
-      if (found) {
-        setContainer(found);
-        obs.disconnect();
-      }
-    });
-    obs.observe(document.body, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, []);
-  // Listen for realtime transcriber status events
-  React.useEffect(() => {
-    const onStatus = (e: any) => {
-      const s = e?.detail as any;
-      if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
-    };
-    try { window.addEventListener('txat_captions_status' as any, onStatus as any); } catch {}
-    // initialize from global if available (avoids flashing "paused")
-    try {
-      const cur = (window as any).__txat_captions_status;
-      if (cur === 'live' || cur === 'reconnecting' || cur === 'paused') setStatus(cur);
-    } catch {}
-    return () => { try { window.removeEventListener('txat_captions_status' as any, onStatus as any); } catch {} };
-  }, []);
-  // Hide legacy Transcribing button if present
-  React.useEffect(() => {
-    if (!container) return;
-    const hide = () => {
-      const btns = Array.from(container.querySelectorAll('button')) as HTMLButtonElement[];
-      btns.forEach((b) => {
-        const txt = (b.textContent || '').toLowerCase();
-        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-        if (txt.includes('transcribing') || aria.includes('transcrib')) {
-          (b as HTMLButtonElement).style.display = 'none';
-        }
-      });
-    };
-    hide();
-    const obs = new MutationObserver(hide);
-    obs.observe(container, { childList: true, subtree: true });
-    return () => obs.disconnect();
-  }, [container]);
-  const pill = (
-    <div
-      aria-label="Transcribing"
-      style={{
-        fontSize: 14,
-        padding: '8px 14px',
-        borderRadius: 8,
-        userSelect: 'none',
-        order: -1,
-        marginRight: 12,
-        border: status === 'live' ? '2px solid #22c55e' : status === 'reconnecting' ? '2px solid #f5a524' : '2px solid #e5484d',
-        color: status === 'live' ? '#22c55e' : status === 'reconnecting' ? '#f5a524' : '#e5484d',
-        background: status === 'live' ? 'rgba(34,197,94,0.10)' : status === 'reconnecting' ? 'rgba(245,165,36,0.10)' : 'rgba(229,72,77,0.10)',
-      }}
-    >
-      {status === 'live' ? 'Transcribing' : status === 'reconnecting' ? 'Transcribing (reconnecting…)' : 'Transcribing (paused)'}
-    </div>
-  );
-  if (container) return createPortal(pill, container);
-  return null;
-}
-
 function LanguageDropdownInControlBar() {
   const [container, setContainer] = React.useState<Element | null>(null);
+  const [status, setStatus] = React.useState<'live'|'reconnecting'|'paused'>('paused');
   const langs: [string, string][] = [
     ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese'],
   ];
@@ -823,6 +749,37 @@ function LanguageDropdownInControlBar() {
     return () => obs.disconnect();
   }, []);
 
+  React.useEffect(() => {
+    const onStatus = (e: any) => {
+      const s = e?.detail as any;
+      if (s === 'live' || s === 'reconnecting' || s === 'paused') setStatus(s);
+    };
+    try { window.addEventListener('txat_captions_status' as any, onStatus as any); } catch {}
+    try {
+      const cur = (window as any).__txat_captions_status;
+      if (cur === 'live' || cur === 'reconnecting' || cur === 'paused') setStatus(cur);
+    } catch {}
+    return () => { try { window.removeEventListener('txat_captions_status' as any, onStatus as any); } catch {} };
+  }, []);
+
+  React.useEffect(() => {
+    if (!container) return;
+    const hide = () => {
+      const btns = Array.from(container.querySelectorAll('button')) as HTMLButtonElement[];
+      btns.forEach((b) => {
+        const txt = (b.textContent || '').toLowerCase();
+        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+        if (txt.includes('transcribing') || aria.includes('transcrib')) {
+          (b as HTMLButtonElement).style.display = 'none';
+        }
+      });
+    };
+    hide();
+    const obs = new MutationObserver(hide);
+    obs.observe(container, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [container]);
+
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     setTargetLang(val);
@@ -832,18 +789,21 @@ function LanguageDropdownInControlBar() {
     } catch {}
   };
 
+  const borderColor = status === 'live' ? '#22c55e' : status === 'reconnecting' ? '#f5a524' : '#e5484d';
+
   const dropdown = (
     <select
       value={targetLang}
       onChange={handleChange}
       aria-label="Translation language"
+      title={status === 'live' ? 'Transcribing' : status === 'reconnecting' ? 'Transcribing (reconnecting…)' : 'Transcribing (paused)'}
       style={{
         fontSize: 14,
         padding: '8px 10px',
         borderRadius: 8,
         background: 'rgba(255,255,255,0.08)',
         color: 'white',
-        border: '2px solid rgba(255,255,255,0.2)',
+        border: `2px solid ${borderColor}`,
         order: -1,
         marginRight: 4,
         cursor: 'pointer',
