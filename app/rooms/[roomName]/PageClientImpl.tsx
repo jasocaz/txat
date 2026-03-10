@@ -951,6 +951,7 @@ function VideoMirrorAll() {
       @media (max-width: 600px) {
         .lk-button-group-menu { display: none !important; }
       }
+      .lk-device-menu { z-index: 99999 !important; }
       @media (max-width: 1024px) {
         .lk-control-bar button.lk-button { font-size: 0 !important; }
       }
