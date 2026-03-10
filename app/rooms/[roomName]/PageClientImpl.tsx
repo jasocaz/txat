@@ -1320,7 +1320,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         {showTranscriptJump && (
           <button
             onClick={() => jumpToBottom(transcriptRef, transcriptAtBottom, setShowTranscriptJump)}
-            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
+            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: '1.5px solid #22c55e', background: 'rgba(34,197,94,0.15)', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
             aria-label="Jump to latest transcript"
           >
             ↓
@@ -1349,7 +1349,7 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         {showTranslationJump && (
           <button
             onClick={() => jumpToBottom(translationRef, translationAtBottom, setShowTranslationJump)}
-            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.25)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
+            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: '1.5px solid #22c55e', background: 'rgba(34,197,94,0.15)', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
             aria-label="Jump to latest translation"
           >
             ↓
