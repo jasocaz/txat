@@ -1198,33 +1198,62 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     return () => obs.disconnect();
   }, [identity, participants]);
 
-  React.useEffect(() => {
-    if (transcriptRef.current) {
-      const el = transcriptRef.current;
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
-    }
-  }, [blocks]);
-
-  // Ensure interim (italics) line stays visible as it updates
-  React.useEffect(() => {
-    if (transcriptRef.current) {
-      const el = transcriptRef.current;
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
-    }
-  }, [active?.id, active?.text]);
+  const transcriptAtBottom = React.useRef(true);
+  const translationAtBottom = React.useRef(true);
+  const [showTranscriptJump, setShowTranscriptJump] = React.useState(false);
+  const [showTranslationJump, setShowTranslationJump] = React.useState(false);
 
   React.useEffect(() => {
-    if (translationRef.current) {
-      const el = translationRef.current;
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
+    const el = transcriptRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+      transcriptAtBottom.current = atBottom;
+      if (atBottom) setShowTranscriptJump(false);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [container]);
+
+  React.useEffect(() => {
+    const el = translationRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
+      translationAtBottom.current = atBottom;
+      if (atBottom) setShowTranslationJump(false);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [container]);
+
+  React.useEffect(() => {
+    const el = transcriptRef.current;
+    if (!el) return;
+    if (transcriptAtBottom.current) {
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    } else {
+      setShowTranscriptJump(true);
+    }
+  }, [blocks, active?.id, active?.text]);
+
+  React.useEffect(() => {
+    const el = translationRef.current;
+    if (!el) return;
+    if (translationAtBottom.current) {
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    } else {
+      setShowTranslationJump(true);
     }
   }, [tblocks]);
+
+  const jumpToBottom = (ref: React.RefObject<HTMLDivElement | null>, atBottomRef: React.MutableRefObject<boolean>, setShow: (v: boolean) => void) => {
+    if (ref.current) {
+      ref.current.scrollTop = ref.current.scrollHeight;
+      atBottomRef.current = true;
+      setShow(false);
+    }
+  };
 
   const isLocal = participants.some((p) => p.identity === identity && p.isLocal);
   const initialTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
@@ -1263,47 +1292,69 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         </select>
       )}
       {/* Transcript (secondary — smaller, dimmer, above translation) */}
-      <div
-        ref={transcriptRef}
-        style={{
-          width: '100%',
-          overflowY: 'auto',
-          paddingRight: 4,
-          maxHeight: isDesktop ? 72 : 54,
-          fontSize: 13,
-          opacity: 0.55,
-          borderBottom: '1px solid rgba(255,255,255,0.12)',
-          paddingBottom: 4,
-        }}
-      >
-        {blocks.map((b) => (
-          <div key={b.id} style={{ whiteSpace: 'pre-wrap', marginBottom: 3 }}>
-            {b.text}
-          </div>
-        ))}
-        {active && (
-          <div key={`active-${active.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 3, fontStyle: 'italic' }}>
-            {active.text}
-          </div>
+      <div style={{ position: 'relative' }}>
+        <div
+          ref={transcriptRef}
+          style={{
+            width: '100%',
+            overflowY: 'auto',
+            paddingRight: 4,
+            maxHeight: isDesktop ? 72 : 54,
+            fontSize: 13,
+            opacity: 0.55,
+            borderBottom: '1px solid rgba(255,255,255,0.12)',
+            paddingBottom: 4,
+          }}
+        >
+          {blocks.map((b) => (
+            <div key={b.id} style={{ whiteSpace: 'pre-wrap', marginBottom: 3 }}>
+              {b.text}
+            </div>
+          ))}
+          {active && (
+            <div key={`active-${active.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 3, fontStyle: 'italic' }}>
+              {active.text}
+            </div>
+          )}
+        </div>
+        {showTranscriptJump && (
+          <button
+            onClick={() => jumpToBottom(transcriptRef, transcriptAtBottom, setShowTranscriptJump)}
+            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
+            aria-label="Jump to latest transcript"
+          >
+            ↓
+          </button>
         )}
       </div>
 
       {/* Translation (primary — larger, brighter, bottom position) */}
-      <div
-        ref={translationRef}
-        style={{
-          width: '100%',
-          overflowY: 'auto',
-          paddingRight: 4,
-          maxHeight: isDesktop ? 140 : 110,
-          fontSize: isDesktop ? 16 : 15,
-        }}
-      >
-        {tblocks.map((b) => (
-          <div key={`t-${b.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
-            {b.text}
-          </div>
-        ))}
+      <div style={{ position: 'relative' }}>
+        <div
+          ref={translationRef}
+          style={{
+            width: '100%',
+            overflowY: 'auto',
+            paddingRight: 4,
+            maxHeight: isDesktop ? 110 : 100,
+            fontSize: isDesktop ? 16 : 15,
+          }}
+        >
+          {tblocks.map((b) => (
+            <div key={`t-${b.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
+              {b.text}
+            </div>
+          ))}
+        </div>
+        {showTranslationJump && (
+          <button
+            onClick={() => jumpToBottom(translationRef, translationAtBottom, setShowTranslationJump)}
+            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: 'none', background: 'rgba(255,255,255,0.25)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
+            aria-label="Jump to latest translation"
+          >
+            ↓
+          </button>
+        )}
       </div>
     </div>,
     container,
