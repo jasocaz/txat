@@ -638,6 +638,7 @@ function VideoConferenceComponent(props: {
         />
         <CopyLinkButtonInControlBar />
         <TranscribingPillInControlBar />
+        <LanguageDropdownInControlBar />
         <CaptionsTilesOverlay room={room} />
         <DebugMode />
         <RecordingIndicator />
@@ -799,6 +800,62 @@ function TranscribingPillInControlBar() {
     </div>
   );
   if (container) return createPortal(pill, container);
+  return null;
+}
+
+function LanguageDropdownInControlBar() {
+  const [container, setContainer] = React.useState<Element | null>(null);
+  const langs: [string, string][] = [
+    ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese'],
+  ];
+  const initialTarget = (typeof window !== 'undefined' ? (window as any).__txat_target_lang : 'en') || 'en';
+  const [targetLang, setTargetLang] = React.useState(initialTarget);
+
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const el = document.querySelector('.lk-control-bar');
+    if (el) { setContainer(el); return; }
+    const obs = new MutationObserver(() => {
+      const found = document.querySelector('.lk-control-bar');
+      if (found) { setContainer(found); obs.disconnect(); }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    setTargetLang(val);
+    try {
+      (window as any).__txat_target_lang = val;
+      localStorage.setItem('txat_target_lang', val);
+    } catch {}
+  };
+
+  const dropdown = (
+    <select
+      value={targetLang}
+      onChange={handleChange}
+      aria-label="Translation language"
+      style={{
+        fontSize: 14,
+        padding: '8px 10px',
+        borderRadius: 8,
+        background: 'rgba(255,255,255,0.08)',
+        color: 'white',
+        border: '2px solid rgba(255,255,255,0.2)',
+        order: -1,
+        marginRight: 4,
+        cursor: 'pointer',
+        outline: 'none',
+      }}
+    >
+      {langs.map(([code, label]) => (
+        <option key={code} value={code} style={{ background: '#1a1a1a' }}>{label}</option>
+      ))}
+    </select>
+  );
+  if (container) return createPortal(dropdown, container);
   return null;
 }
 
@@ -1137,8 +1194,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
   const { identity, blocks, tblocks, active } = props;
   const participants = useParticipants();
   const [container, setContainer] = React.useState<Element | null>(null);
-  const transcriptRef = React.useRef<HTMLDivElement | null>(null);
-  const translationRef = React.useRef<HTMLDivElement | null>(null);
   const [isDesktop, setIsDesktop] = React.useState(false);
   React.useEffect(() => {
     const check = () => setIsDesktop(window.innerWidth >= 768);
@@ -1146,9 +1201,6 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
   }, []);
-  const langs = React.useMemo(() => [
-    ['en','English'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],['ja','Japanese'],['zh','Chinese']
-  ] as [string,string][], []);
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
     const escId = (window as any).CSS?.escape
@@ -1198,71 +1250,37 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     return () => obs.disconnect();
   }, [identity, participants]);
 
-  const transcriptAtBottom = React.useRef(true);
-  const translationAtBottom = React.useRef(true);
-  const [showTranscriptJump, setShowTranscriptJump] = React.useState(false);
-  const [showTranslationJump, setShowTranslationJump] = React.useState(false);
+  const bubblesRef = React.useRef<HTMLDivElement | null>(null);
+  const bubblesAtBottom = React.useRef(true);
+  const [showJump, setShowJump] = React.useState(false);
 
   React.useEffect(() => {
-    const el = transcriptRef.current;
+    const el = bubblesRef.current;
     if (!el) return;
     const onScroll = () => {
       const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
-      transcriptAtBottom.current = atBottom;
-      if (atBottom) setShowTranscriptJump(false);
+      bubblesAtBottom.current = atBottom;
+      if (atBottom) setShowJump(false);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, [container]);
 
   React.useEffect(() => {
-    const el = translationRef.current;
+    const el = bubblesRef.current;
     if (!el) return;
-    const onScroll = () => {
-      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10;
-      translationAtBottom.current = atBottom;
-      if (atBottom) setShowTranslationJump(false);
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, [container]);
-
-  React.useEffect(() => {
-    const el = transcriptRef.current;
-    if (!el) return;
-    if (transcriptAtBottom.current) {
+    if (bubblesAtBottom.current) {
       requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     } else {
-      setShowTranscriptJump(true);
+      setShowJump(true);
     }
-  }, [blocks, active?.id, active?.text]);
-
-  React.useEffect(() => {
-    const el = translationRef.current;
-    if (!el) return;
-    if (translationAtBottom.current) {
-      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
-    } else {
-      setShowTranslationJump(true);
-    }
-  }, [tblocks]);
-
-  const jumpToBottom = (ref: React.RefObject<HTMLDivElement | null>, atBottomRef: React.MutableRefObject<boolean>, setShow: (v: boolean) => void) => {
-    if (ref.current) {
-      ref.current.scrollTop = ref.current.scrollHeight;
-      atBottomRef.current = true;
-      setShow(false);
-    }
-  };
+  }, [blocks, tblocks, active?.id, active?.text]);
 
   const isLocal = participants.some((p) => p.identity === identity && p.isLocal);
-  const initialTarget = (typeof window!=='undefined'?(window as any).__txat_target_lang:'en')||'en';
-  const [targetLang, setTargetLang] = React.useState(initialTarget);
-  const handleTargetChange = (e: any)=>{
-    const val = e.target.value;
-    setTargetLang(val);
-    try{ (window as any).__txat_target_lang=val; localStorage.setItem('txat_target_lang',val);}catch{}
-  };
+  const bubbleBg = isLocal ? 'rgba(0,122,255,0.75)' : 'rgba(60,60,67,0.75)';
+  const bubbleRadius = isLocal ? '16px 16px 4px 16px' : '16px 16px 16px 4px';
+  const bubbleAlign = isLocal ? 'flex-end' : 'flex-start';
+
   if (!container) return null;
   return createPortal(
     <div
@@ -1272,90 +1290,92 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
         right: 8,
         bottom: 40,
         zIndex: 9999,
-        padding: '8px 10px',
-        borderRadius: 8,
-        background: 'rgba(0,0,0,0.6)',
-        color: 'white',
         pointerEvents: 'auto',
-        lineHeight: 1.45,
-        textAlign: 'left',
-        maxHeight: isDesktop ? 230 : 180,
+        maxHeight: isDesktop ? 260 : 200,
         display: 'flex',
         flexDirection: 'column',
-        gap: 4,
-        overflow: 'hidden',
       }}
     >
-      {isLocal && (
-        <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:11,background:'rgba(0,0,0,0.5)',color:'white',border:'1px solid rgba(255,255,255,0.25)',borderRadius:4,zIndex:1}} title="Translate to">
-          {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
-        </select>
+      <div
+        ref={bubblesRef}
+        style={{
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          alignItems: bubbleAlign,
+          padding: '4px 0',
+        }}
+      >
+        {blocks.map((b) => {
+          const translation = tblocks.find((t) => t.id === b.id);
+          return (
+            <div
+              key={b.id}
+              style={{
+                background: bubbleBg,
+                borderRadius: bubbleRadius,
+                padding: '8px 14px',
+                maxWidth: '88%',
+                color: 'white',
+                lineHeight: 1.45,
+              }}
+            >
+              <div style={{ fontSize: 13, opacity: 0.75, whiteSpace: 'pre-wrap' }}>{b.text}</div>
+              {translation && (
+                <div style={{ fontSize: isDesktop ? 15 : 14, fontWeight: 600, whiteSpace: 'pre-wrap', marginTop: 2 }}>{translation.text}</div>
+              )}
+            </div>
+          );
+        })}
+        {active && (
+          <div
+            key={`active-${active.id}`}
+            style={{
+              background: bubbleBg,
+              borderRadius: bubbleRadius,
+              padding: '8px 14px',
+              maxWidth: '88%',
+              color: 'white',
+              lineHeight: 1.45,
+              opacity: 0.8,
+            }}
+          >
+            <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>{active.text}</div>
+          </div>
+        )}
+      </div>
+      {showJump && (
+        <button
+          onClick={() => {
+            if (bubblesRef.current) {
+              bubblesRef.current.scrollTop = bubblesRef.current.scrollHeight;
+              bubblesAtBottom.current = true;
+              setShowJump(false);
+            }
+          }}
+          style={{
+            alignSelf: 'center',
+            marginTop: 4,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            border: '1.5px solid #22c55e',
+            background: 'rgba(34,197,94,0.15)',
+            color: '#22c55e',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 14,
+            lineHeight: 1,
+            padding: 0,
+          }}
+          aria-label="Jump to latest"
+        >
+          ↓
+        </button>
       )}
-      {/* Transcript (secondary — smaller, dimmer, above translation) */}
-      <div style={{ position: 'relative' }}>
-        <div
-          ref={transcriptRef}
-          style={{
-            width: '100%',
-            overflowY: 'auto',
-            paddingRight: 4,
-            maxHeight: isDesktop ? 72 : 54,
-            fontSize: 13,
-            opacity: 0.55,
-            borderBottom: '1px solid rgba(255,255,255,0.12)',
-            paddingBottom: 4,
-          }}
-        >
-          {blocks.map((b) => (
-            <div key={b.id} style={{ whiteSpace: 'pre-wrap', marginBottom: 3 }}>
-              {b.text}
-            </div>
-          ))}
-          {active && (
-            <div key={`active-${active.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 3, fontStyle: 'italic' }}>
-              {active.text}
-            </div>
-          )}
-        </div>
-        {showTranscriptJump && (
-          <button
-            onClick={() => jumpToBottom(transcriptRef, transcriptAtBottom, setShowTranscriptJump)}
-            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: '1.5px solid #22c55e', background: 'rgba(34,197,94,0.15)', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
-            aria-label="Jump to latest transcript"
-          >
-            ↓
-          </button>
-        )}
-      </div>
-
-      {/* Translation (primary — larger, brighter, bottom position) */}
-      <div style={{ position: 'relative' }}>
-        <div
-          ref={translationRef}
-          style={{
-            width: '100%',
-            overflowY: 'auto',
-            paddingRight: 4,
-            maxHeight: isDesktop ? 110 : 100,
-            fontSize: isDesktop ? 16 : 15,
-          }}
-        >
-          {tblocks.map((b) => (
-            <div key={`t-${b.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
-              {b.text}
-            </div>
-          ))}
-        </div>
-        {showTranslationJump && (
-          <button
-            onClick={() => jumpToBottom(translationRef, translationAtBottom, setShowTranslationJump)}
-            style={{ position: 'absolute', bottom: 6, right: 2, width: 28, height: 28, borderRadius: 14, border: '1.5px solid #22c55e', background: 'rgba(34,197,94,0.15)', color: '#22c55e', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, lineHeight: 1, padding: 0 }}
-            aria-label="Jump to latest translation"
-          >
-            ↓
-          </button>
-        )}
-      </div>
     </div>,
     container,
   );
