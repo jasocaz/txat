@@ -1239,86 +1239,71 @@ function CaptionPortal(props: { identity: string; blocks: { id: number; ts: numb
     <div
       style={{
         position: 'absolute',
-        left: 12,
-        right: 12,
-        bottom: 48,
+        left: 8,
+        right: 8,
+        bottom: 40,
         zIndex: 9999,
-        padding: '10px 12px',
-        borderRadius: 10,
-        background: 'rgba(0,0,0,0.55)',
+        padding: '8px 10px',
+        borderRadius: 8,
+        background: 'rgba(0,0,0,0.6)',
         color: 'white',
         pointerEvents: 'auto',
-        fontSize: 15,
-        lineHeight: 1.4,
+        lineHeight: 1.45,
         textAlign: 'left',
-        minHeight: isDesktop ? 150 : 110,
-        maxHeight: isDesktop ? 334 : 250,
+        maxHeight: isDesktop ? 230 : 180,
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
+        gap: 4,
         overflow: 'hidden',
       }}
     >
       {isLocal && (
-        <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:12,background:'rgba(0,0,0,0.4)',color:'white',border:'1px solid rgba(255,255,255,0.3)',borderRadius:4}} title="Translate to">
+        <select value={targetLang} onChange={handleTargetChange} style={{position:'absolute',top:4,right:6,fontSize:11,background:'rgba(0,0,0,0.5)',color:'white',border:'1px solid rgba(255,255,255,0.25)',borderRadius:4,zIndex:1}} title="Translate to">
           {langs.map(([code,label])=>(<option key={code} value={code}>{code}</option>))}
         </select>
       )}
-      {/* Transcript box */}
+      {/* Transcript (secondary — smaller, dimmer, above translation) */}
       <div
         ref={transcriptRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: isDesktop ? 126 : 84,
-          borderBottom: '1px solid rgba(255,255,255,0.15)'
+          maxHeight: isDesktop ? 72 : 54,
+          fontSize: 13,
+          opacity: 0.55,
+          borderBottom: '1px solid rgba(255,255,255,0.12)',
+          paddingBottom: 4,
         }}
       >
-        {blocks.length === 0 && !active ? (
-          <div style={{ opacity: 0.8 }}>Transcript will appear here…</div>
-        ) : (
-          blocks.map((b) => (
-            <div key={b.id} style={{ whiteSpace: 'pre-wrap', marginBottom: 6 }}>
-              <span style={{ color: 'rgba(255,255,255,0.7)', marginRight: 8 }}>
-                [{new Date(b.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}]
-              </span>
-              <span>{b.text}</span>
-            </div>
-          ))
-        )}
+        {blocks.map((b) => (
+          <div key={b.id} style={{ whiteSpace: 'pre-wrap', marginBottom: 3 }}>
+            {b.text}
+          </div>
+        ))}
         {active && (
-          <div key={`active-${active.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 6, opacity: 0.9, fontStyle: 'italic' }}>
-            <span style={{ color: 'rgba(255,255,255,0.6)', marginRight: 8 }}>
-              [{new Date(active.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}]
-            </span>
-            <span>{active.text}</span>
+          <div key={`active-${active.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 3, fontStyle: 'italic' }}>
+            {active.text}
           </div>
         )}
       </div>
 
-      {/* Translation box */}
+      {/* Translation (primary — larger, brighter, bottom position) */}
       <div
         ref={translationRef}
         style={{
           width: '100%',
           overflowY: 'auto',
           paddingRight: 4,
-          maxHeight: isDesktop ? 126 : 84,
+          maxHeight: isDesktop ? 140 : 110,
+          fontSize: isDesktop ? 16 : 15,
         }}
       >
-        {tblocks.length === 0 ? (
-          <div style={{ opacity: 0.8 }}>Translation will appear here…</div>
-        ) : (
-          tblocks.map((b) => (
-            <div key={`t-${b.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 6 }}>
-              <span style={{ color: 'rgba(255,255,255,0.7)', marginRight: 8 }}>
-                [{new Date(b.ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}]
-              </span>
-              <span style={{ opacity: 0.95 }}>{b.text}</span>
-            </div>
-          ))
-        )}
+        {tblocks.map((b) => (
+          <div key={`t-${b.id}`} style={{ whiteSpace: 'pre-wrap', marginBottom: 4 }}>
+            {b.text}
+          </div>
+        ))}
       </div>
     </div>,
     container,
