@@ -941,7 +941,12 @@ function HideAgentTiles() {
 
 function VideoMirrorAll() {
   return (
-    <style>{`.lk-room-container video { transform: scaleX(-1) !important; }`}</style>
+    <style>{`
+      .lk-room-container video { transform: scaleX(-1) !important; }
+      @media (max-width: 600px) {
+        .lk-button-group-menu { display: none !important; }
+      }
+    `}</style>
   );
 }
 
