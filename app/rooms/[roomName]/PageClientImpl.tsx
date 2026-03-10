@@ -943,8 +943,16 @@ function VideoMirrorAll() {
   return (
     <style>{`
       .lk-room-container video { transform: scaleX(-1) !important; }
+      .lk-control-bar {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex-wrap: nowrap !important;
+      }
       @media (max-width: 600px) {
         .lk-button-group-menu { display: none !important; }
+      }
+      @media (max-width: 1024px) {
+        .lk-control-bar button.lk-button { font-size: 0 !important; }
       }
     `}</style>
   );
