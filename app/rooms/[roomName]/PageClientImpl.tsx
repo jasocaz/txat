@@ -947,6 +947,8 @@ function VideoMirrorAll() {
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
         flex-wrap: nowrap !important;
+        position: relative !important;
+        z-index: 100 !important;
       }
       @media (max-width: 600px) {
         .lk-button-group-menu { display: none !important; }
