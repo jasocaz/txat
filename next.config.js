@@ -18,7 +18,7 @@ const nextConfig = {
   headers: async () => {
     return [
       {
-        source: '/(.*)',
+        source: '/rooms/:path*',
         headers: [
           {
             key: 'Cross-Origin-Opener-Policy',

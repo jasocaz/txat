@@ -954,6 +954,31 @@ function VideoMirrorAll() {
       @media (max-width: 1024px) {
         .lk-control-bar button.lk-button { font-size: 0 !important; }
       }
+      /* Hide browser extension overlays that get blocked by COEP on the room page */
+      bit-notification-bar-root,
+      com-1password-notification,
+      [data-1p-root],
+      #com-1password-op-press-key-toast,
+      #__lpform_root,
+      [id^="lpchrome"],
+      [id^="__lpform"],
+      dashlanefield,
+      #dashlane-extension,
+      [id^="dashlane"],
+      protonpass-root,
+      [id^="protonpass"],
+      grammarly-desktop-integration,
+      grammarly-extension,
+      grammarly-mirror,
+      [data-grammarly-shadow-root],
+      [id^="languagetool"],
+      [id^="honey-"],
+      honey-extension,
+      [id^="rakuten-"],
+      rakuten-ios-root,
+      [id^="capitalone-"] {
+        display: none !important;
+      }
     `}</style>
   );
 }
