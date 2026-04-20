@@ -6,11 +6,11 @@ import { Toaster } from 'react-hot-toast';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Txat | Real-time translation meetings',
+    default: 'Txat - Meet | Real-time translation meetings',
     template: '%s',
   },
   description:
-    'Txat - Real-time translation meetings powered by LiveKit. Join meetings with automatic transcription and translation in multiple languages.',
+    'Txat - Meet - Real-time translation meetings powered by LiveKit. Join meetings with automatic transcription and translation in multiple languages.',
   twitter: {
     creator: '@livekitted',
     site: '@livekitted',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
         type: 'image/png',
       },
     ],
-    siteName: 'Txat',
+    siteName: 'Txat - Meet',
   },
   icons: {
     icon: {

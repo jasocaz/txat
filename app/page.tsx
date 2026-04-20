@@ -209,19 +209,19 @@ export default function Page() {
     <>
       <main className={styles.main} data-lk-theme="default">
         <div className="header" style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-          {/* Replace logo with stylized Txat to match Meet wordmark */}
           <h1
-            aria-label="Txat"
+            aria-label="Txat - Meet"
             style={{
               fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial',
-              fontWeight: 600,
-              fontSize: '3rem',
-              letterSpacing: '0.02em',
-              color: '#ff6b5f',
+              fontWeight: 300,
+              fontSize: '2.25rem',
+              lineHeight: '2.5rem',
+              letterSpacing: '-0.025em',
+              color: '#ffffff',
               margin: 0,
             }}
           >
-            Txat
+            Txat - <span style={{ color: '#ff6b5f' }}>Meet</span>
           </h1>
         </div>
         {/* Show Demo content directly without tab selector */}
